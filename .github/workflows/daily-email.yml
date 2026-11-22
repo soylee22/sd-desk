@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: sd-desk-daily-email
+  group: sd-desk-main
   cancel-in-progress: false
 
 permissions:
