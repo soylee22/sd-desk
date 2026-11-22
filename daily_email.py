@@ -145,98 +145,187 @@ def build_report(data: dict[str, Any], t212: dict[str, Any] | None) -> tuple[str
     plain_lines += ["", f"Dashboard: {SITE_URL}"]
     plain = "\n".join(plain_lines)
 
-    # Clean TradingView-inspired HTML email
-    tone_bg = {"deploy": "#05332a", "normal": "#0c224d", "park": "#3b2604"}.get(rec["tone"], "#131313")
-    tone_fg = {"deploy": "#22ab94", "normal": "#5b9cf6", "park": "#f59e0b"}.get(rec["tone"], "#dbdbdb")
+    # Bulletproof email HTML: pure table layout (zero flex/grid), crisp light card that survives Gmail/Apple Mail
+    tone_map = {
+        "deploy": ("#dcfce7", "#166534", "#86efac"),
+        "normal": ("#dbeafe", "#1e40af", "#93c5fd"),
+        "park": ("#fef3c7", "#92400e", "#fcd34d"),
+    }
+    tone_bg, tone_fg, tone_bd = tone_map.get(rec["tone"], ("#f3f4f6", "#111827", "#d1d5db"))
 
     rows_html = ""
     for aid in sorted(data["order"], key=lambda k: stats_by_id[k]["z"]):
         a = data["assets"][aid]
         s = stats_by_id[aid]
         m = mults[aid]
-        z_col = "#22ab94" if s["z"] <= 0 else ("#f23645" if s["z"] >= 1.5 else "#5b9cf6")
-        tm_col = "#22ab94" if s["to_mean_1y_pct"] >= 0 else "#f23645"
+        z_col = "#15803d" if s["z"] <= 0 else ("#dc2626" if s["z"] >= 1.5 else "#1d4ed8")
+        tm_col = "#15803d" if s["to_mean_1y_pct"] >= 0 else "#dc2626"
+        mult_str = f"{m['mult']:.2f}x" if m["mult"] > 0 else "0.00x"
         rows_html += f"""
-        <tr style="border-bottom:1px solid #222222;">
-          <td style="padding:9px 8px;font-weight:700;color:#ffffff;">{html.escape(aid)}</td>
-          <td style="padding:9px 8px;color:#8c8c8c;">{html.escape(a['region'])}</td>
-          <td style="padding:9px 8px;text-align:right;color:#dbdbdb;">{_fmt_px(a['last'], a['currency'])} {html.escape(a['currency'])}</td>
-          <td style="padding:9px 8px;text-align:right;font-weight:700;color:{z_col};">{s['z']:+.2f} SD</td>
-          <td style="padding:9px 8px;text-align:right;color:#dbdbdb;">{s['r']:.3f}</td>
-          <td style="padding:9px 8px;text-align:right;color:#dbdbdb;">{s['trend_pct']:+.1f}%/yr</td>
-          <td style="padding:9px 8px;text-align:right;color:{tm_col};">{s['to_mean_1y_pct']:+.1f}%</td>
-          <td style="padding:9px 8px;text-align:right;font-weight:600;color:#ffffff;">{m['mult']:.2f}x ({m['pct']:.1f}%)</td>
+        <tr>
+          <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;vertical-align:top;">
+            <div style="font-weight:700;color:#111827;font-size:13px;">{html.escape(aid)}</div>
+            <div style="font-size:11px;color:#6b7280;">{html.escape(a['region'])} · R {s['r']:.3f} ({s['n']}w)</div>
+          </td>
+          <td style="padding:10px 6px;border-bottom:1px solid #e5e7eb;text-align:right;white-space:nowrap;vertical-align:top;color:#111827;font-size:13px;">
+            {_fmt_px(a['last'], a['currency'])}<br><span style="font-size:10px;color:#6b7280;">{html.escape(a['currency'])}</span>
+          </td>
+          <td style="padding:10px 6px;border-bottom:1px solid #e5e7eb;text-align:right;white-space:nowrap;vertical-align:top;font-weight:700;color:{z_col};font-size:13px;">
+            {s['z']:+.2f} SD
+          </td>
+          <td style="padding:10px 6px;border-bottom:1px solid #e5e7eb;text-align:right;white-space:nowrap;vertical-align:top;font-size:12px;">
+            <span style="color:#374151;">{s['trend_pct']:+.1f}%/yr</span><br>
+            <span style="color:{tm_col};font-weight:600;">{s['to_mean_1y_pct']:+.1f}% to mean</span>
+          </td>
+          <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;text-align:right;white-space:nowrap;vertical-align:top;font-size:12px;">
+            <strong style="color:#111827;">{mult_str}</strong><br>
+            <span style="color:#6b7280;">{m['pct']:.1f}%</span>
+          </td>
         </tr>"""
 
     t212_html = ""
     if t212 and t212.get("connected"):
-        pnl_col = "#22ab94" if t212["total_pnl_gbp"] >= 0 else "#f23645"
+        pnl_col = "#15803d" if t212["total_pnl_gbp"] >= 0 else "#dc2626"
         other_rows = ""
         for p in t212.get("other_positions", []):
-            pc = "#22ab94" if p["pnl_gbp"] >= 0 else "#f23645"
+            pc = "#15803d" if p["pnl_gbp"] >= 0 else "#dc2626"
             other_rows += f"""
-            <tr style="border-bottom:1px solid #222222;">
-              <td style="padding:7px 8px;color:#ffffff;font-weight:600;">{html.escape(p['short_name'])}</td>
-              <td style="padding:7px 8px;color:#8c8c8c;">{html.escape(p['name'])}</td>
-              <td style="padding:7px 8px;text-align:right;color:#dbdbdb;">{_fmt_gbp(p['value_gbp'])}</td>
-              <td style="padding:7px 8px;text-align:right;color:{pc};">{_fmt_gbp(p['pnl_gbp'], signed=True)} ({p['pnl_pct']:+.2f}%)</td>
-            </tr>"""
-        t212_html = f"""
-        <div style="margin-top:20px;border-top:2px solid #222222;padding-top:16px;">
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#707070;margin-bottom:10px;">Private Trading 212 Snapshot (Not Published to Web)</div>
-          <table style="width:100%;border-collapse:collapse;background:#0c0c0c;border:1px solid #222222;margin-bottom:10px;">
             <tr>
-              <td style="padding:10px 12px;"><div style="font-size:10px;color:#707070;text-transform:uppercase;">Total Account</div><div style="font-size:17px;font-weight:700;color:#ffffff;">{_fmt_gbp(t212['total_account_gbp'])}</div></td>
-              <td style="padding:10px 12px;"><div style="font-size:10px;color:#707070;text-transform:uppercase;">Invested</div><div style="font-size:17px;font-weight:700;color:#ffffff;">{_fmt_gbp(t212['invested_gbp'])}</div></td>
-              <td style="padding:10px 12px;"><div style="font-size:10px;color:#707070;text-transform:uppercase;">Free Cash</div><div style="font-size:17px;font-weight:700;color:#ffffff;">{_fmt_gbp(t212['free_cash_gbp'])}</div></td>
-              <td style="padding:10px 12px;"><div style="font-size:10px;color:#707070;text-transform:uppercase;">Unrealised P&amp;L</div><div style="font-size:17px;font-weight:700;color:{pnl_col};">{_fmt_gbp(t212['total_pnl_gbp'], signed=True)} ({t212['total_pnl_pct']:+.2f}%)</div></td>
-            </tr>
-          </table>
-          {f'<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="border-bottom:1px solid #303030;color:#707070;font-size:10.5px;text-transform:uppercase;"><th style="padding:6px 8px;text-align:left;">Holding</th><th style="padding:6px 8px;text-align:left;">Name</th><th style="padding:6px 8px;text-align:right;">Value</th><th style="padding:6px 8px;text-align:right;">P&amp;L</th></tr></thead><tbody>{other_rows}</tbody></table>' if other_rows else ''}
-        </div>"""
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#111827;font-weight:600;font-size:12px;">
+                {html.escape(p['short_name'])}<br><span style="font-weight:400;font-size:11px;color:#6b7280;">{html.escape(p['name'])}</span>
+              </td>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right;white-space:nowrap;color:#111827;font-size:12px;">{_fmt_gbp(p['value_gbp'])}</td>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right;white-space:nowrap;color:{pc};font-weight:600;font-size:12px;">{_fmt_gbp(p['pnl_gbp'], signed=True)}<br><span style="font-size:11px;">({p['pnl_pct']:+.2f}%)</span></td>
+            </tr>"""
+        other_table = ""
+        if other_rows:
+            other_table = f"""
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:10px;">
+              <thead>
+                <tr>
+                  <th style="padding:6px 8px;text-align:left;font-size:10px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;">Holding</th>
+                  <th style="padding:6px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;">Value</th>
+                  <th style="padding:6px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;">P&amp;L</th>
+                </tr>
+              </thead>
+              <tbody>{other_rows}</tbody>
+            </table>"""
+
+        t212_html = f"""
+        <tr>
+          <td style="padding:18px 20px 6px;border-top:1px solid #e5e7eb;">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#6b7280;margin-bottom:10px;">Private Trading 212 Snapshot (Not Published to Web)</div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#f9fafb;border:1px solid #e5e7eb;">
+              <tr>
+                <td width="50%" style="padding:10px 12px;border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;">
+                  <div style="font-size:10px;text-transform:uppercase;color:#6b7280;">Total Account</div>
+                  <div style="font-size:17px;font-weight:700;color:#111827;margin-top:2px;">{_fmt_gbp(t212['total_account_gbp'])}</div>
+                </td>
+                <td width="50%" style="padding:10px 12px;border-bottom:1px solid #e5e7eb;">
+                  <div style="font-size:10px;text-transform:uppercase;color:#6b7280;">Invested</div>
+                  <div style="font-size:17px;font-weight:700;color:#111827;margin-top:2px;">{_fmt_gbp(t212['invested_gbp'])}</div>
+                </td>
+              </tr>
+              <tr>
+                <td width="50%" style="padding:10px 12px;border-right:1px solid #e5e7eb;">
+                  <div style="font-size:10px;text-transform:uppercase;color:#6b7280;">Free Cash</div>
+                  <div style="font-size:17px;font-weight:700;color:#111827;margin-top:2px;">{_fmt_gbp(t212['free_cash_gbp'])}</div>
+                </td>
+                <td width="50%" style="padding:10px 12px;">
+                  <div style="font-size:10px;text-transform:uppercase;color:#6b7280;">Unrealised P&amp;L</div>
+                  <div style="font-size:17px;font-weight:700;color:{pnl_col};margin-top:2px;">{_fmt_gbp(t212['total_pnl_gbp'], signed=True)} ({t212['total_pnl_pct']:+.2f}%)</div>
+                </td>
+              </tr>
+            </table>
+            {other_table}
+          </td>
+        </tr>"""
 
     html_body = f"""<!DOCTYPE html>
-<html><body style="margin:0;padding:20px;background:#0a0a0a;color:#dbdbdb;font-family:-apple-system,BlinkMacSystemFont,'Trebuchet MS',Roboto,Ubuntu,sans-serif;">
-  <div style="max-width:680px;margin:0 auto;background:#000000;border:1px solid #222222;padding:22px 24px;">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid #222222;padding-bottom:12px;margin-bottom:16px;">
-      <div style="font-size:16px;font-weight:700;color:#ffffff;">SD Desk · Daily Briefing</div>
-      <div style="font-size:12px;color:#707070;">LSE close {html.escape(asof)}</div>
-    </div>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+</head>
+<body style="margin:0;padding:16px 8px;background-color:#f3f4f6;color:#111827;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#f3f4f6">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="max-width:600px;background-color:#ffffff;border:1px solid #e5e7eb;border-radius:8px;border-collapse:separate;">
+          <!-- Header -->
+          <tr>
+            <td style="padding:18px 20px;border-bottom:1px solid #e5e7eb;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="font-size:18px;font-weight:700;color:#111827;">SD Desk</td>
+                  <td align="right" style="font-size:12px;color:#6b7280;white-space:nowrap;">LSE close {html.escape(asof)}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
 
-    <div style="background:#0c0c0c;border:1px solid #222222;padding:14px 16px;margin-bottom:18px;">
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#707070;">Next Monthly Payday · {html.escape(cd['first_trading_label'])}</div>
-      <div style="margin:6px 0 8px;">
-        <span style="font-size:26px;font-weight:700;color:#ffffff;margin-right:10px;">{cd['days_to_first_trading']}d</span>
-        <span style="display:inline-block;padding:4px 9px;border-radius:3px;font-size:12px;font-weight:700;background:{tone_bg};color:{tone_fg};">{html.escape(rec['action'])}</span>
-      </div>
-      <div style="font-size:13px;color:#dbdbdb;line-height:1.45;">{html.escape(rec['headline'])}</div>
-    </div>
+          <!-- Payday Action Banner -->
+          <tr>
+            <td style="padding:16px 20px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#f9fafb" style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;">
+                <tr>
+                  <td style="padding:14px 16px;">
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#6b7280;">
+                      Next Monthly Payday · {html.escape(cd['first_trading_label'])}
+                    </div>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0;">
+                      <tr>
+                        <td style="font-size:26px;font-weight:800;color:#111827;white-space:nowrap;width:64px;">{cd['days_to_first_trading']}d</td>
+                        <td style="vertical-align:middle;">
+                          <span style="display:inline-block;padding:4px 10px;border-radius:4px;font-size:12px;font-weight:700;background-color:{tone_bg};color:{tone_fg};border:1px solid {tone_bd};">{html.escape(rec['action'])}</span>
+                        </td>
+                      </tr>
+                    </table>
+                    <div style="font-size:13px;color:#374151;line-height:1.45;">{html.escape(rec['headline'])}</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
 
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#707070;margin-bottom:8px;">Full-History Standings (Max Log 1W · Zero-Prior Lump-Sum Multipliers)</div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px;">
-      <thead>
-        <tr style="border-bottom:1px solid #303030;color:#707070;font-size:10.5px;text-transform:uppercase;">
-          <th style="padding:7px 8px;text-align:left;">ETF</th>
-          <th style="padding:7px 8px;text-align:left;">Region</th>
-          <th style="padding:7px 8px;text-align:right;">Last</th>
-          <th style="padding:7px 8px;text-align:right;">Live Z</th>
-          <th style="padding:7px 8px;text-align:right;">R</th>
-          <th style="padding:7px 8px;text-align:right;">Trend</th>
-          <th style="padding:7px 8px;text-align:right;">To +1Y Mean</th>
-          <th style="padding:7px 8px;text-align:right;">Lump-Sum</th>
-        </tr>
-      </thead>
-      <tbody>{rows_html}</tbody>
-    </table>
+          <!-- Standings Table -->
+          <tr>
+            <td style="padding:4px 20px 16px;">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#6b7280;margin-bottom:8px;">
+                Full-History Standings (Max Log 1W · Zero-Prior Lump-Sum)
+              </div>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                <thead>
+                  <tr>
+                    <th style="padding:7px 8px;text-align:left;font-size:10px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;">ETF</th>
+                    <th style="padding:7px 6px;text-align:right;font-size:10px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;">Last</th>
+                    <th style="padding:7px 6px;text-align:right;font-size:10px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;">Live Z</th>
+                    <th style="padding:7px 6px;text-align:right;font-size:10px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;">Channel</th>
+                    <th style="padding:7px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;">Lump-Sum</th>
+                  </tr>
+                </thead>
+                <tbody>{rows_html}</tbody>
+              </table>
+            </td>
+          </tr>
 
-    {t212_html}
+          {t212_html}
 
-    <div style="margin-top:20px;padding-top:14px;border-top:1px solid #222222;text-align:center;">
-      <a href="{SITE_URL}" style="display:inline-block;padding:9px 18px;background:#2962ff;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:600;font-size:13px;">Open Live SD Desk Dashboard</a>
-      <div style="font-size:11px;color:#707070;margin-top:8px;">Automated by GitHub Actions · Uncapped SD rules · Not regulated financial advice.</div>
-    </div>
-  </div>
-</body></html>"""
+          <!-- CTA Footer -->
+          <tr>
+            <td align="center" style="padding:18px 20px 22px;border-top:1px solid #e5e7eb;">
+              <a href="{SITE_URL}" style="display:inline-block;padding:10px 22px;background-color:#2962ff;color:#ffffff;text-decoration:none;border-radius:5px;font-weight:600;font-size:13px;">Open Live SD Desk Dashboard</a>
+              <div style="font-size:11px;color:#9ca3af;margin-top:10px;">Automated by GitHub Actions · Uncapped SD rules · Not regulated financial advice.</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
 
     return subject, plain, html_body
 
