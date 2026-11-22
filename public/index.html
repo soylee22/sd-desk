@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CSP1 · CUKX · SJPA · IGL5 | SD Desk</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="tv-shell">
+    <!-- TOP BAR (TradingView layout__area--top, 38px) -->
+    <header class="tv-topbar">
+      <div class="tv-top-left">
+        <div class="tv-corner" title="SD Desk">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#dbdbdb" stroke-width="2" stroke-linecap="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/></svg>
+        </div>
+
+        <button class="tv-symbol-btn" id="btnActiveSym" title="Active symbol">
+          <span id="topSymLabel">4-ETF</span>
+        </button>
+
+        <span class="tv-sep"></span>
+
+        <button class="tv-tool-btn active" data-tf="1W" title="Weekly bars">W</button>
+        <button class="tv-tool-btn" data-tf="1D" title="Daily bars">D</button>
+
+        <span class="tv-sep"></span>
+
+        <button class="tv-tool-btn active" data-lb="max" title="Full available history">Max</button>
+        <button class="tv-tool-btn" data-lb="2500" title="2500 trading days">2500D</button>
+        <button class="tv-tool-btn" data-lb="1250" title="1250 trading days">1250D</button>
+
+        <span class="tv-sep"></span>
+
+        <button class="tv-tool-btn active" data-bands="34" title="Lower -3/-4 SD bands">-3/-4 SD</button>
+        <button class="tv-tool-btn" data-bands="12" title="Lower -1/-2 SD bands">-1/-2 SD</button>
+
+        <span class="tv-sep"></span>
+
+        <button class="tv-tool-btn active" data-bond="spliced" title="Full 2009+ IGLS/IGL5 history">IGL5 Full</button>
+        <button class="tv-tool-btn" data-bond="native" title="IGL5 native 2023+ only">2023+</button>
+
+        <span class="tv-sep"></span>
+
+        <button class="tv-tool-btn nav-active" data-view="quadrants">Quadrants</button>
+        <button class="tv-tool-btn" data-view="normalised">Normalised</button>
+        <button class="tv-tool-btn" data-view="lumpsum">Lump Sum</button>
+        <button class="tv-tool-btn" data-view="portfolio">Portfolio</button>
+      </div>
+
+      <div class="tv-top-right">
+        <button class="tv-tool-btn" id="btnT212Pill" data-view="portfolio" title="Live Trading 212 connection status" style="font-size:11.5px; color:var(--tv-dim);">T212 ...</button>
+        <span class="tv-sep"></span>
+        <span class="tv-asof" id="asofTag">Loading...</span>
+        <button class="tv-tool-btn primary" id="btnRefresh">Refresh</button>
+      </div>
+    </header>
+
+    <!-- LEFT VERTICAL ICON RAIL (TradingView layout__area--left, 52px) -->
+    <nav class="tv-left-rail" aria-label="Workspace tools">
+      <button class="tv-rail-btn active" data-view="quadrants" title="4-Chart Quadrants">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>
+      </button>
+      <button class="tv-rail-btn" data-view="normalised" title="Normalised SD Overlay">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 12h18" stroke-dasharray="3 3"/><path d="M3 16c4-8 8-8 10 0s5-9 8-4"/><path d="M3 8c4 7 7 5 11-2s4 2 7 6"/></svg>
+      </button>
+      <button class="tv-rail-btn" data-view="lumpsum" title="Algebraic Lump-Sum Solver">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 20h16"/><rect x="5" y="10" width="3" height="10"/><rect x="10.5" y="5" width="3" height="15"/><rect x="16" y="13" width="3" height="7"/></svg>
+      </button>
+      <button class="tv-rail-btn" data-view="portfolio" title="Live Trading 212 Portfolio">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="6" width="18" height="14" rx="1.5"/><path d="M16 13h5"/><path d="M7 6V4.5A1.5 1.5 0 0 1 8.5 3h7A1.5 1.5 0 0 1 17 4.5V6"/></svg>
+      </button>
+      <span class="tv-rail-sep"></span>
+      <button class="tv-rail-btn" id="railResetZoom" title="Reset All Chart Zoom (All History)">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+      </button>
+      <button class="tv-rail-btn" id="railToggleFocus" title="Toggle Single / 2x2 Quadrant Layout">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M8 3H3v5M21 8V3h-5M3 16v5h5M16 21h5v-5"/></svg>
+      </button>
+    </nav>
+
+    <!-- CENTER CHART WORKSPACE (TradingView layout__area--center) -->
+    <main class="tv-center">
+      <div class="tv-views">
+        <!-- VIEW 1: 4 QUADRANTS -->
+        <section class="view-panel active" id="view-quadrants">
+          <div class="quad-grid" id="quadGrid">
+            <div class="quad-cell" data-asset="CSP1">
+              <div class="quad-header" id="hdr-CSP1"></div>
+              <div class="quad-tools">
+                <button class="icon-btn" data-reset="CSP1" title="Reset zoom">↺</button>
+                <button class="icon-btn" data-focus="CSP1" title="Maximize">⤢</button>
+              </div>
+              <div class="chart-canvas-wrap"><canvas id="cv-CSP1"></canvas></div>
+            </div>
+            <div class="quad-cell" data-asset="CUKX">
+              <div class="quad-header" id="hdr-CUKX"></div>
+              <div class="quad-tools">
+                <button class="icon-btn" data-reset="CUKX" title="Reset zoom">↺</button>
+                <button class="icon-btn" data-focus="CUKX" title="Maximize">⤢</button>
+              </div>
+              <div class="chart-canvas-wrap"><canvas id="cv-CUKX"></canvas></div>
+            </div>
+            <div class="quad-cell" data-asset="SJPA">
+              <div class="quad-header" id="hdr-SJPA"></div>
+              <div class="quad-tools">
+                <button class="icon-btn" data-reset="SJPA" title="Reset zoom">↺</button>
+                <button class="icon-btn" data-focus="SJPA" title="Maximize">⤢</button>
+              </div>
+              <div class="chart-canvas-wrap"><canvas id="cv-SJPA"></canvas></div>
+            </div>
+            <div class="quad-cell" data-asset="IGL5">
+              <div class="quad-header" id="hdr-IGL5"></div>
+              <div class="quad-tools">
+                <button class="icon-btn" data-reset="IGL5" title="Reset zoom">↺</button>
+                <button class="icon-btn" data-focus="IGL5" title="Maximize">⤢</button>
+              </div>
+              <div class="chart-canvas-wrap"><canvas id="cv-IGL5"></canvas></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 2: NORMALISED OVERLAY (Full Zoom/Pan/Spotlight) -->
+        <section class="view-panel" id="view-normalised">
+          <div class="tv-subbar">
+            <div class="tv-subbar-group">
+              <button class="tv-tool-btn active" data-normmode="channel" title="Residuals measured against today's full-history TradingView regression line">Current Channel (TradingView)</button>
+              <button class="tv-tool-btn" data-normmode="causal" title="What the indicator actually read on each historical date using only past bars available at that time (zero hindsight)">Live-at-the-Time Z (No Hindsight)</button>
+              <span class="tv-sep"></span>
+              <div class="tv-subbar-group" id="normSeriesToggles"></div>
+            </div>
+            <div class="tv-subbar-group">
+              <span style="font-size:11px; color:var(--tv-dim);">Scroll to zoom · Drag to pan · Drag right axis to scale Y · Hover ticker to spotlight</span>
+              <button class="tv-tool-btn" id="btnNormReset">Reset</button>
+            </div>
+          </div>
+
+          <div class="norm-stage">
+            <div class="chart-canvas-wrap"><canvas id="cv-norm"></canvas></div>
+          </div>
+
+          <div class="norm-table-wrap">
+            <table class="tv-table">
+              <thead>
+                <tr>
+                  <th>Symbol</th>
+                  <th>Region</th>
+                  <th class="num-r">Last</th>
+                  <th class="num-r">Z-Score</th>
+                  <th class="num-r">R</th>
+                  <th class="num-r">Bars</th>
+                  <th class="num-r">Trend / yr</th>
+                  <th class="num-r">Mean Now</th>
+                  <th class="num-r">+1Y Mean</th>
+                  <th class="num-r">To +1Y Mean</th>
+                </tr>
+              </thead>
+              <tbody id="normTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- VIEW 3: ZERO-PRIOR ALGEBRAIC LUMP-SUM ALLOCATOR -->
+        <section class="view-panel" id="view-lumpsum">
+          <div class="tv-subbar">
+            <div class="tv-subbar-group">
+              <span style="font-weight:600; color:#fff;">Algebraic Lump-Sum Allocator</span>
+              <span id="solverT212Hint" style="font-size:11.5px; color:var(--tv-dim);">Zero default country weights. Multipliers reverse-engineered purely from live SD positions.</span>
+            </div>
+            <div class="tv-subbar-group">
+              <button class="tv-tool-btn" id="btnUseT212Total" title="Set Lump Sum to your live total Trading 212 account value (useful for switchover)">Use T212 Total as Lump Sum</button>
+              <button class="tv-tool-btn" id="btnPullT212ToSolver" title="Load existing CSP1/CUKX/SJPA/IGL5 balances from T212 for zero-sell water-filling">Pull T212 Sleeves</button>
+            </div>
+          </div>
+
+          <div class="tv-split-page">
+            <div class="tv-panel-pad">
+              <div class="tv-sec-title">Algebraic Inputs</div>
+
+              <div class="field">
+                <label><span>Lump Sum (£)</span><span id="lumpFmt">£100,000</span></label>
+                <input type="number" id="inLumpSum" value="100000" min="100" step="500" />
+                <div class="preset-row">
+                  <button class="preset-btn" data-lump="5000">£5k</button>
+                  <button class="preset-btn" data-lump="20000">£20k ISA</button>
+                  <button class="preset-btn" data-lump="50000">£50k</button>
+                  <button class="preset-btn" data-lump="100000">£100k</button>
+                  <button class="preset-btn" data-lump="120000">£120k</button>
+                </div>
+              </div>
+
+              <div class="field">
+                <label><span>Pure SD Algebra (No Country Priors)</span></label>
+                <select id="inAlgModel">
+                  <option value="exp" selected>Exponential SD: exp(-beta * z_i)</option>
+                  <option value="headroom">Channel Headroom: max(0, 2.0 - z_i)^p</option>
+                  <option value="reversion">1Y Mean-Reversion Pull: max(0, ToMean)^p</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label><span id="betaLbl">SD Convexity (beta)</span><span id="betaVal">0.65</span></label>
+                <input type="range" id="inBeta" min="0" max="2.5" step="0.05" value="0.65" />
+                <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--tv-dim); margin-top:2px;">
+                  <span>0.0 (Flat 1:1:1)</span>
+                  <span>0.65 (Balanced)</span>
+                  <span>2.5 (Steep)</span>
+                </div>
+              </div>
+
+              <div class="field">
+                <label><span>IGL5 Gilt Blow-Off Valve</span></label>
+                <select id="inBondValve">
+                  <option value="all_gate" selected>Only When ALL Three &gt;= +1.5 SD (Matches Monthly Rule)</option>
+                  <option value="off">Off (100% Equity Always)</option>
+                  <option value="per_asset">Optional: Per-Asset Taper (+1.5 to +2.0 SD -> IGL5)</option>
+                </select>
+              </div>
+
+              <label class="checkbox-row">
+                <input type="checkbox" id="chkUseExisting" />
+                <span>Account for existing holdings (zero-sell water-fill)</span>
+              </label>
+
+              <div id="existingHoldingsBox" style="display:none;">
+                <div class="inline-grid-2">
+                  <div class="mini-field"><span>Current CSP1 (£)</span><input type="number" id="ex-CSP1" value="0" min="0" step="100" /></div>
+                  <div class="mini-field"><span>Current CUKX (£)</span><input type="number" id="ex-CUKX" value="0" min="0" step="100" /></div>
+                  <div class="mini-field"><span>Current SJPA (£)</span><input type="number" id="ex-SJPA" value="0" min="0" step="100" /></div>
+                  <div class="mini-field"><span>Current IGL5 (£)</span><input type="number" id="ex-IGL5" value="0" min="0" step="100" /></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tv-panel-pad">
+              <div class="tv-sec-title">Solved Allocation & Relative Multipliers</div>
+              <div class="formula-strip" id="solverFormula"></div>
+              <div class="mult-grid" id="solverMultStrip"></div>
+              <div class="alloc-bar" id="solverAllocBar"></div>
+              <table class="tv-table">
+                <thead>
+                  <tr>
+                    <th>ETF</th>
+                    <th class="num-r">Live Z</th>
+                    <th class="num-r">Rel. Mult</th>
+                    <th class="num-r">Target %</th>
+                    <th class="num-r">Buy Now (£)</th>
+                    <th class="num-r">Est. Shares</th>
+                    <th class="num-r">Post-Buy %</th>
+                  </tr>
+                </thead>
+                <tbody id="solverTableBody"></tbody>
+              </table>
+              <div class="wrapper-note" id="solverWrapperNote"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 4: TRADING 212 PORTFOLIO -->
+        <section class="view-panel" id="view-portfolio">
+          <div class="tv-subbar">
+            <div class="tv-subbar-group">
+              <span style="font-weight:600; color:#fff;">Trading 212 Portfolio</span>
+              <span id="t212Status" style="font-size:11.5px; color:var(--tv-dim);">Local read-only bridge on 127.0.0.1</span>
+            </div>
+            <div class="tv-subbar-group">
+              <button class="tv-tool-btn" id="btnUseInSolver">Load into Solver</button>
+              <button class="tv-tool-btn primary" id="btnSyncT212">Sync T212</button>
+            </div>
+          </div>
+
+          <div class="kpi-grid" id="t212Kpis"></div>
+
+          <div class="tv-panel-pad" style="flex:1;">
+            <div class="tv-sec-title">SD Desk Strategy Sleeves (CSP1 · CUKX · SJPA · IGL5)</div>
+            <table class="tv-table" style="margin-bottom:18px;">
+              <thead>
+                <tr>
+                  <th>Sleeve</th>
+                  <th class="num-r">Live Z</th>
+                  <th class="num-r">Shares</th>
+                  <th class="num-r">Value (£)</th>
+                  <th class="num-r">Cost (£)</th>
+                  <th class="num-r">P&amp;L (£)</th>
+                  <th class="num-r">P&amp;L %</th>
+                  <th class="num-r">Weight %</th>
+                </tr>
+              </thead>
+              <tbody id="t212SleevesBody"></tbody>
+            </table>
+
+            <div class="tv-sec-title">Other / Legacy Positions</div>
+            <table class="tv-table">
+              <thead>
+                <tr>
+                  <th>Ticker</th>
+                  <th>Name</th>
+                  <th class="num-r">Shares</th>
+                  <th class="num-r">Value (£)</th>
+                  <th class="num-r">Cost (£)</th>
+                  <th class="num-r">P&amp;L (£)</th>
+                  <th class="num-r">P&amp;L %</th>
+                </tr>
+              </thead>
+              <tbody id="t212OtherBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- TRADINGVIEW BOTTOM DATE-RANGE & SCALE BAR (exact TV layout) -->
+      <footer class="tv-bottom-bar">
+        <div class="tv-range-tabs" id="rangeTabs">
+          <button class="tv-range-btn" data-range="1M">1M</button>
+          <button class="tv-range-btn" data-range="3M">3M</button>
+          <button class="tv-range-btn" data-range="6M">6M</button>
+          <button class="tv-range-btn" data-range="YTD">YTD</button>
+          <button class="tv-range-btn" data-range="1Y">1Y</button>
+          <button class="tv-range-btn" data-range="3Y">3Y</button>
+          <button class="tv-range-btn" data-range="5Y">5Y</button>
+          <button class="tv-range-btn" data-range="10Y">10Y</button>
+          <button class="tv-range-btn active" data-range="ALL">All</button>
+        </div>
+        <div class="tv-bottom-right">
+          <span id="utcClock">--:--:-- UTC</span>
+          <span class="tv-sep" style="height:14px;"></span>
+          <button class="tv-range-btn active" id="btnLogToggle" title="Toggle Log / Linear regression scale">log</button>
+          <button class="tv-range-btn active" id="btnAutoY" title="Auto-fit Y scale">auto</button>
+        </div>
+      </footer>
+    </main>
+
+    <!-- RIGHT PANEL: TRADINGVIEW WATCHLIST + PAYDAY & DETAILS INSPECTOR -->
+    <aside class="tv-right-panel">
+      <div class="tv-pane" style="flex: 0 0 auto;">
+        <div class="tv-pane-head">
+          <span>Watchlist</span>
+          <span id="railScaleTag" style="font-size:11px; color:var(--tv-dim); font-weight:500;">Max Log W</span>
+        </div>
+        <div class="wl-cols">
+          <span>Symbol</span>
+          <span class="num-r">Last</span>
+          <span class="num-r">Chg%</span>
+          <span class="num-r">Z</span>
+        </div>
+        <div class="wl-section">▾ LONG TERM PORTFOLIO</div>
+        <div id="watchlistRows"></div>
+      </div>
+
+      <div class="tv-pane" style="flex: 1 1 auto;">
+        <div class="tv-details-pane">
+          <div>
+            <div class="payday-kicker">
+              <span>Next Payday (1st)</span>
+              <span id="railNextDate">--</span>
+            </div>
+            <div class="payday-big">
+              <span class="payday-num" id="railDays">--</span>
+              <span class="payday-unit" id="railCalDays">days to 1st</span>
+            </div>
+            <div style="margin:6px 0;"><span id="railRecBadge" class="tv-signal normal">LOADING</span></div>
+            <div class="tv-copy" id="railRecText"></div>
+          </div>
+
+          <div class="tv-kv-list" id="selectedSymbolDetails"></div>
+
+          <div class="tv-kv-list" style="font-size:11.5px; color:var(--tv-dim);">
+            <div style="color:var(--tv-muted); font-weight:600;">Monthly Rules (Uncapped)</div>
+            <div>1. Pick lowest equity Z (CSP1, CUKX, SJPA).</div>
+            <div>2. z &lt;= 0.0 SD: Buy 100% + sweep all IGL5.</div>
+            <div>3. 0.0 to +1.5 SD: Buy 100% new cash only.</div>
+            <div>4. All &gt;= +1.5 SD: Park 100% in IGL5.</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script src="./data/market_data.js"></script>
+  <script src="./math.js"></script>
+  <script src="./quad-chart.js"></script>
+  <script src="./norm-chart.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

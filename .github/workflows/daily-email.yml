@@ -1,0 +1,75 @@
+name: Daily SD Desk email
+
+on:
+  schedule:
+    # Weekday morning briefing (UK time) + fallback slots; --once-today prevents duplicates
+    - cron: '17 7 * * 1-5'
+    - cron: '41 8 * * 1-5'
+    - cron: '17 10 * * 1-5'
+  workflow_dispatch:
+
+concurrency:
+  group: sd-desk-daily-email
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  daily-email:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Europe/London
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Check whether daily email already sent today
+        id: gate
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] && python -c "import daily_email, sys; sys.exit(0 if daily_email.already_sent_today() else 1)"; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Already sent today; skipping."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Refresh latest LSE market data
+        if: steps.gate.outputs.skip != 'true'
+        run: python fetch_data.py
+
+      - name: Send private daily email
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          T212_KEY_ID: ${{ secrets.T212_KEY_ID }}
+          T212_SECRET: ${{ secrets.T212_SECRET }}
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            python daily_email.py --once-today
+          else
+            python daily_email.py
+          fi
+
+      - name: Record dispatch state and refreshed data
+        if: steps.gate.outputs.skip != 'true'
+        run: |
+          git config user.name "soylee22"
+          git config user.email "leeslater1992@gmail.com"
+          git add public/data/last_daily.json public/data/market_data.json public/data/market_data.js
+          if git diff --staged --quiet; then
+            echo "Nothing to commit"
+          else
+            git commit -m "daily: $(date +%Y-%m-%d)"
+            git pull --rebase origin main
+            git push
+          fi

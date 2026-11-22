@@ -1,0 +1,75 @@
+name: Site refresh and Pages deploy
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Hourly across UK & US market hours Mon-Fri plus Saturday morning post-close
+    - cron: '23 7,8,9,10,11,12,13,14,15,16,17,18,19,20,21 * * 1-5'
+    - cron: '23 10 * * 6'
+  workflow_dispatch:
+
+concurrency:
+  group: sd-desk-pages
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  refresh-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    env:
+      TZ: Europe/London
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Refresh LSE ETF prices and Welford OLS channels
+        run: python fetch_data.py
+
+      - name: Verify frontend JavaScript syntax
+        run: |
+          node --check public/math.js
+          node --check public/quad-chart.js
+          node --check public/norm-chart.js
+          node --check public/app.js
+
+      - name: Commit updated public market data
+        run: |
+          git config user.name "soylee22"
+          git config user.email "leeslater1992@gmail.com"
+          git add public/data/market_data.json public/data/market_data.js
+          if git diff --staged --quiet; then
+            echo "Market data unchanged"
+          else
+            git commit -m "data: refresh $(date -u +%Y-%m-%dT%H:%MZ)"
+            git pull --rebase origin main
+            git push
+          fi
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload static site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
