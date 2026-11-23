@@ -1,6 +1,6 @@
 # SD Desk
 
-TradingView-styled 4-ETF standard deviation channel dashboard, normalised regression overlay, zero-prior algebraic lump-sum allocator, and daily email briefing for `CSP1`, `CUKX`, `SJPA`, and `IGL5` (spliced with `IGLS.L` back to April 2009).
+TradingView-styled 5-ETF standard deviation channel dashboard, normalised regression overlay, zero-prior algebraic lump-sum allocator, and daily email briefing for `CSP1`, `CUKX`, `SJPA`, `CSWG` (spliced with `EWL` × `GBP=X` back to September 2010), and `IGL5` (spliced with `IGLS.L` back to April 2009).
 
 The Global Radar adds three more views on the same Welford OLS maths:
 

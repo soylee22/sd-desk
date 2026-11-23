@@ -18,7 +18,7 @@
     selectedAsset: "CSP1",
     activeRange: "ALL",
     normMode: "channel",
-    normVisible: { CSP1: true, CUKX: true, SJPA: true, IGL5: true },
+    normVisible: { CSP1: true, CUKX: true, SJPA: true, CSWG: true, IGL5: true },
     t212: null,
     t212Loading: false,
   };
@@ -42,6 +42,7 @@
   };
   const fmtZ = (z) => `${z >= 0 ? "+" : ""}${Number(z || 0).toFixed(2)} SD`;
   const fmtPct = (v) => `${v >= 0 ? "+" : ""}${Number(v || 0).toFixed(2)}%`;
+  const badgeChar = (id) => (id === "CSWG" ? "A" : "i");
 
   function zCls(z) {
     if (z <= 0.0) return "z-low";
@@ -88,7 +89,7 @@
     $("asofTag").textContent = asof ? `LSE ${asof}${gen ? " · Sync " + gen : ""}` : "";
     const lbTxt = state.lookback === "max" ? "Max" : `${state.lookback}D`;
     $("railScaleTag").textContent = `${lbTxt} ${state.useLog ? "Log" : "Lin"} ${state.tf === "1W" ? "W" : "D"}`;
-    $("topSymLabel").textContent = state.focusedAsset || "4-ETF";
+    $("topSymLabel").textContent = state.focusedAsset || "5-ETF";
     $("btnLogToggle").classList.toggle("active", state.useLog);
   }
 
@@ -115,7 +116,7 @@
       const row = document.createElement("div");
       row.className = "wl-row" + (state.selectedAsset === id ? " selected" : "");
       row.innerHTML = `
-        <div class="wl-sym"><span class="ishares-dot" style="background:${a.color}">i</span><span>${a.id}</span></div>
+        <div class="wl-sym"><span class="ishares-dot" style="background:${a.color}">${badgeChar(a.id)}</span><span>${a.id}</span></div>
         <div class="num-r">${C.fmtPx(a.last, a.currency)}</div>
         <div class="num-r ${chg >= 0 ? "up" : "dn"}">${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%</div>
         <div class="num-r z-tag ${zCls(item.stats.z)}">${item.stats.z >= 0 ? "+" : ""}${item.stats.z.toFixed(2)}</div>
@@ -139,7 +140,7 @@
     const spanTxt = sel.series.t.length ? `${sel.series.t[0].slice(0, 4)} to ${sel.series.t[sel.series.t.length - 1].slice(0, 4)}` : "";
     $("selectedSymbolDetails").innerHTML = `
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
-        <span class="ishares-dot" style="background:${sa.color}">i</span>
+        <span class="ishares-dot" style="background:${sa.color}">${badgeChar(sa.id)}</span>
         <strong style="color:#fff;font-size:13px;">${sa.id}</strong>
         <span style="color:var(--tv-dim);font-size:11px;">${sa.region} · ${sa.currency}</span>
       </div>
@@ -157,12 +158,14 @@
       const a = item.asset;
       const chg = state.tf === "1W" ? a.wk_chg_pct : a.day_chg_pct;
       const hdr = $("hdr-" + id);
-      const bondNote = id === "IGL5" && state.bondMode === "spliced" ? " (2009+ IGLS)" : "";
+      const extraNote = id === "IGL5" && state.bondMode === "spliced"
+        ? " (2009+ IGLS)"
+        : (id === "CSWG" ? " (2010+ EWL splice)" : "");
       hdr.innerHTML = `
         <div class="quad-title">
-          <span class="ishares-dot" style="background:${a.color}">i</span>
+          <span class="ishares-dot" style="background:${a.color}">${badgeChar(a.id)}</span>
           <span class="quad-ticker">${a.id}</span>
-          <span class="quad-name">${a.name}${bondNote}</span>
+          <span class="quad-name">${a.name}${extraNote}</span>
           <span class="quad-meta">${state.tf} · LSE</span>
           <span class="quad-price ${chg >= 0 ? "up" : "dn"}">${C.fmtPx(a.last, a.currency)} (${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%)</span>
         </div>
@@ -259,12 +262,11 @@
       toMeanById[id] = computed[id].stats.toMean1YPct;
       pricesGbpById[id] = M.priceToGbp(state.data.assets[id].last, state.data.assets[id].currency);
     });
-    const existingById = {
-      CSP1: Number($("ex-CSP1").value) || 0,
-      CUKX: Number($("ex-CUKX").value) || 0,
-      SJPA: Number($("ex-SJPA").value) || 0,
-      IGL5: Number($("ex-IGL5").value) || 0,
-    };
+    const existingById = {};
+    M.ALL_IDS.forEach((id) => {
+      const el = $("ex-" + id);
+      existingById[id] = el ? Number(el.value) || 0 : 0;
+    });
 
     const res = M.solveLumpSum({ lumpSum, model, beta, bondValve, useExisting, zById, toMeanById, pricesGbpById, existingById });
     $("solverFormula").textContent = res.formulaText + (useExisting ? "  |  Zero-sell water-fill ON" : "");
@@ -387,7 +389,7 @@
       hint.style.color = "#22ab94";
       hint.textContent = state.t212.strategy_total_gbp > 0
         ? `Loaded live T212 sleeves (${fmtGbp0(state.t212.strategy_total_gbp)} across SD ETFs).`
-        : `T212 synced live: £0 in CSP1/CUKX/SJPA/IGL5 so far (currently holding ${legacyNames || "legacy positions"}). Click "Use T212 Total as Lump Sum" to model switching over.`;
+        : `T212 synced live: £0 in CSP1/CUKX/SJPA/CSWG/IGL5 so far (currently holding ${legacyNames || "legacy positions"}). Click "Use T212 Total as Lump Sum" to model switching over.`;
     }
     switchView("lumpsum");
     renderSolver();
@@ -609,7 +611,7 @@
     document.querySelectorAll("[data-focus]").forEach((b) => b.addEventListener("click", () => toggleFocus(b.dataset.focus, false)));
 
     document.querySelectorAll("[data-lump]").forEach((b) => b.addEventListener("click", () => { $("inLumpSum").value = b.dataset.lump; renderSolver(); }));
-    ["inLumpSum", "inAlgModel", "inBeta", "inBondValve", "chkUseExisting", "ex-CSP1", "ex-CUKX", "ex-SJPA", "ex-IGL5"].forEach((id) => {
+    ["inLumpSum", "inAlgModel", "inBeta", "inBondValve", "chkUseExisting", "ex-CSP1", "ex-CUKX", "ex-SJPA", "ex-CSWG", "ex-IGL5"].forEach((id) => {
       const el = $(id);
       if (el) { el.addEventListener("input", renderSolver); el.addEventListener("change", renderSolver); }
     });

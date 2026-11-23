@@ -59,6 +59,22 @@ ASSETS = [
         "t212_tickers": ["SJPAl_EQ", "SJPA_L_EQ", "VJPBl_EQ"],
     },
     {
+        "id": "CSWG",
+        "yf": "CSWG.L",
+        "min_date": "2022-10-03",
+        "splice_proxy_yf": "EWL",
+        "splice_fx_yf": "GBP=X",
+        "splice_min_date": "2010-09-13",
+        "name": "Amundi MSCI Switzerland UCITS ETF (Acc)",
+        "region": "Switzerland",
+        "isin": "LU1681044993",
+        "ocf": 0.25,
+        "currency": "GBX",
+        "role": "equity",
+        "color": "#F59E0B",
+        "t212_tickers": ["CSWGl_EQ", "CSWG_L_EQ", "CSWUl_EQ", "18MNd_EQ", "540Jd_EQ"],
+    },
+    {
         "id": "IGL5",
         "yf": "IGL5.L",
         "splice_yf": "IGLS.L",
@@ -123,8 +139,32 @@ def _fetch_bars(symbol: str, interval: str, min_date: str | None = None) -> pd.D
     return df
 
 
+def _to_weekly_iso(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    iso = df.index.isocalendar()
+    yw = iso.year.astype(str) + "-" + iso.week.astype(str).str.zfill(2)
+    grouped = df.groupby(yw.values, sort=False)
+    out = grouped.agg({"close": "last", "volume": "sum"})
+    out.index = pd.DatetimeIndex([g.index[-1] for _, g in grouped])
+    return out.sort_index()
+
+
+def _fetch_fx_proxy(symbol: str, fx_symbol: str, min_date: str | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Fetch a USD/foreign total-return ETF and convert daily closes to GBP via fx_symbol, returning (weekly, daily)."""
+    px_d = _fetch_bars(symbol, "1d", min_date=min_date)
+    fx_d = _fetch_bars(fx_symbol, "1d", min_date=None)
+    if px_d.empty or fx_d.empty:
+        return pd.DataFrame(columns=["close", "volume"]), pd.DataFrame(columns=["close", "volume"])
+    al = px_d.join(fx_d["close"].rename("fx"), how="left")
+    al["fx"] = al["fx"].ffill().bfill()
+    conv_d = pd.DataFrame({"close": al["close"] * al["fx"], "volume": al["volume"]}, index=al.index)
+    conv_d = conv_d[conv_d["close"].notna() & (conv_d["close"] > 0)]
+    return _to_weekly_iso(conv_d), conv_d
+
+
 def _splice_bond(native_df: pd.DataFrame, proxy_df: pd.DataFrame) -> pd.DataFrame:
-    """Back-splice IGL5 (2023+) with IGLS total-return series (2009+) scaled smoothly at first overlap."""
+    """Back-splice a newer or split-corrupted native series with a clean proxy scaled smoothly at first overlap."""
     if native_df.empty or proxy_df.empty:
         return native_df
     first_dt = native_df.index[0]
@@ -133,6 +173,8 @@ def _splice_bond(native_df: pd.DataFrame, proxy_df: pd.DataFrame) -> pd.DataFram
         return native_df
     # Find nearest proxy close at or before first_dt for seamless scaling
     overlap = proxy_df.loc[proxy_df.index <= first_dt]
+    if overlap.empty:
+        return native_df
     scale = float(native_df["close"].iloc[0]) / float(overlap["close"].iloc[-1])
     pre["close"] = pre["close"] * scale
     combined = pd.concat([pre, native_df]).sort_index()
@@ -220,7 +262,7 @@ def next_month_countdown(today: date | None = None) -> dict[str, Any]:
 
 
 def compute_recommendation(summary_by_id: dict[str, dict[str, Any]], gate_z: float = 1.5) -> dict[str, Any]:
-    equities = ["CSP1", "CUKX", "SJPA"]
+    equities = [a["id"] for a in ASSETS if a["role"] == "equity" and a["id"] in summary_by_id]
     ranked = sorted(equities, key=lambda k: summary_by_id[k]["z"])
     best_id = ranked[0]
     best_z = summary_by_id[best_id]["z"]
@@ -236,7 +278,7 @@ def compute_recommendation(summary_by_id: dict[str, dict[str, Any]], gate_z: flo
     else:
         action = "PARK IN IGL5"
         tone = "park"
-        headline = f"All three equity sleeves sit at or above +{gate_z:.1f} SD (lowest is {best_id} at {best_z:+.2f} SD). Put 100% of this month's contribution into IGL5 until one equity cools to 0.0 SD."
+        headline = f"All four equity sleeves sit at or above +{gate_z:.1f} SD (lowest is {best_id} at {best_z:+.2f} SD). Put 100% of this month's contribution into IGL5 until one equity cools to 0.0 SD."
 
     return {
         "action": action,
@@ -262,6 +304,16 @@ def build_dataset() -> dict[str, Any]:
         min_dt = meta.get("min_date")
         df_w = _fetch_bars(meta["yf"], "1wk", min_date=min_dt)
         df_d = _fetch_bars(meta["yf"], "1d", min_date=min_dt)
+
+        # Back-splice equity sleeves whose pre-merger LSE history is broken on Yahoo (e.g. CSWG via EWL*GBP)
+        if meta.get("splice_proxy_yf") and meta.get("splice_fx_yf"):
+            pw, pd_ = _fetch_fx_proxy(
+                meta["splice_proxy_yf"],
+                meta["splice_fx_yf"],
+                min_date=meta.get("splice_min_date"),
+            )
+            df_w = _splice_bond(df_w, pw)
+            df_d = _splice_bond(df_d, pd_)
 
         spliced_w = None
         spliced_d = None

@@ -75,15 +75,12 @@ def _fmt_gbp(val: float, signed: bool = False) -> str:
 
 
 def _zero_prior_multipliers(z_by_id: dict[str, float], beta: float = 0.65, gate_z: float = 1.5) -> dict[str, dict[str, float]]:
-    eqs = ["CSP1", "CUKX", "SJPA"]
+    eqs = [a["id"] for a in fetch_data.ASSETS if a["role"] == "equity" and a["id"] in z_by_id]
     all_hot = all(z_by_id[k] >= gate_z for k in eqs)
     if all_hot:
-        return {
-            "CSP1": {"mult": 0.0, "pct": 0.0},
-            "CUKX": {"mult": 0.0, "pct": 0.0},
-            "SJPA": {"mult": 0.0, "pct": 0.0},
-            "IGL5": {"mult": 1.0, "pct": 100.0},
-        }
+        out = {k: {"mult": 0.0, "pct": 0.0} for k in eqs}
+        out["IGL5"] = {"mult": 1.0, "pct": 100.0}
+        return out
     u = {k: math.exp(-beta * z_by_id[k]) for k in eqs}
     tot = sum(u.values())
     min_u = min(u.values()) if u else 1.0
@@ -107,10 +104,10 @@ def build_report(data: dict[str, Any], t212: dict[str, Any] | None) -> tuple[str
     mults = _zero_prior_multipliers(z_by_id, beta=0.65, gate_z=1.5)
 
     asof = data["assets"]["CSP1"].get("asof", cd["today"])
-    subject = (
-        f"SD Desk: {cd['days_to_first_trading']}d to 1st · {rec['action']} "
-        f"(CSP1 {z_by_id['CSP1']:+.2f} | SJPA {z_by_id['SJPA']:+.2f} | CUKX {z_by_id['CUKX']:+.2f})"
-    )
+    eq_order = [a["id"] for a in fetch_data.ASSETS if a["role"] == "equity" and a["id"] in z_by_id]
+    eq_ranked = sorted(eq_order, key=lambda k: z_by_id[k])
+    z_summary = " | ".join(f"{k} {z_by_id[k]:+.2f}" for k in eq_ranked)
+    subject = f"SD Desk: {cd['days_to_first_trading']}d to 1st · {rec['action']} ({z_summary})"
 
     # Plain-text version
     plain_lines = [
@@ -119,7 +116,7 @@ def build_report(data: dict[str, Any], t212: dict[str, Any] | None) -> tuple[str
         f"Current Action: {rec['action']}",
         rec["headline"],
         "",
-        "Full-History Standings (Max Log 1W, IGL5 2009+ Spliced):",
+        "Full-History Standings (Max Log 1W, CSWG 2010+ & IGL5 2009+ Spliced):",
     ]
     for aid in sorted(data["order"], key=lambda k: stats_by_id[k]["z"]):
         a = data["assets"][aid]

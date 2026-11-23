@@ -2,8 +2,8 @@
 (function (root) {
   "use strict";
 
-  const EQUITIES = ["CSP1", "CUKX", "SJPA"];
-  const ALL_IDS = ["CSP1", "CUKX", "SJPA", "IGL5"];
+  const EQUITIES = ["CSP1", "CUKX", "SJPA", "CSWG"];
+  const ALL_IDS = ["CSP1", "CUKX", "SJPA", "CSWG", "IGL5"];
 
   function parseIsoDate(s) {
     const parts = String(s).split("-");
@@ -214,7 +214,7 @@
     } else {
       action = "PARK IN IGL5";
       tone = "park";
-      headline = `All three equity sleeves sit at or above +${gate.toFixed(1)} SD (lowest is ${bestId} at ${zStr}). Park 100% in IGL5 until one resets to 0.0 SD.`;
+      headline = `All four equity sleeves sit at or above +${gate.toFixed(1)} SD (lowest is ${bestId} at ${zStr}). Park 100% in IGL5 until one resets to 0.0 SD.`;
     }
 
     return {
@@ -331,7 +331,8 @@
       formulaText = `u_i = exp(-${beta.toFixed(2)} * z_i)  (zero default weights; identical Z => 1.00x equal split)`;
     }
 
-    const targetW = { CSP1: 0, CUKX: 0, SJPA: 0, IGL5: 0 };
+    const targetW = {};
+    ALL_IDS.forEach((id) => { targetW[id] = 0; });
     if (sumU <= 1e-12) {
       targetW.IGL5 = 1;
     } else if (bondValve === "all_gate") {
@@ -371,14 +372,13 @@
       existing[id] = useExisting ? Math.max(0, Number((opts.existingById || {})[id]) || 0) : 0;
     });
 
-    const buys = useExisting
-      ? waterFillBuy(lumpSum, targetW, existing)
-      : {
-          CSP1: lumpSum * targetW.CSP1,
-          CUKX: lumpSum * targetW.CUKX,
-          SJPA: lumpSum * targetW.SJPA,
-          IGL5: lumpSum * targetW.IGL5,
-        };
+    let buys;
+    if (useExisting) {
+      buys = waterFillBuy(lumpSum, targetW, existing);
+    } else {
+      buys = {};
+      ALL_IDS.forEach((id) => { buys[id] = lumpSum * targetW[id]; });
+    }
 
     const totalExisting = ALL_IDS.reduce((a, id) => a + existing[id], 0);
     const totalAfter = totalExisting + lumpSum;
