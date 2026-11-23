@@ -494,11 +494,14 @@
     }
   }
 
+  const GLOBAL_VIEWS = ["countries", "macro", "scanner"];
+
   function switchView(viewName) {
     state.view = viewName;
     document.querySelectorAll(".tv-topbar [data-view]").forEach((b) => b.classList.toggle("nav-active", b.dataset.view === viewName));
     document.querySelectorAll(".tv-left-rail [data-view], .tv-far-right [data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === viewName));
     document.querySelectorAll(".view-panel").forEach((p) => p.classList.toggle("active", p.id === "view-" + viewName));
+    document.body.classList.toggle("global-view", GLOBAL_VIEWS.indexOf(viewName) >= 0);
     requestAnimationFrame(() => {
       if (viewName === "quadrants") renderQuadrants(true);
       else if (viewName === "normalised") renderNormalised(true);
@@ -506,6 +509,8 @@
       else if (viewName === "portfolio") {
         if (!state.t212) syncT212(false);
         else renderPortfolio();
+      } else if (GLOBAL_VIEWS.indexOf(viewName) >= 0 && window.SDGlobal) {
+        window.SDGlobal.activate(viewName);
       }
     });
   }
@@ -660,6 +665,7 @@
     state.data.order.forEach((id) => { quadCharts[id] = new C.QuadrantChart($("cv-" + id), id); });
     normChart = new C.NormalisedChart($("cv-norm"));
     bindUI();
+    if (window.SDGlobal) window.SDGlobal.bind();
     updateClock();
     setInterval(updateClock, 1000);
     renderAll(false);

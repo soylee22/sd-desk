@@ -1,0 +1,144 @@
+name: Global radar daily scan
+
+on:
+  schedule:
+    # Weekday 22:15 UTC, after the US close
+    - cron: '15 22 * * 1-5'
+  workflow_dispatch:
+
+concurrency:
+  group: sd-desk-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  global-radar:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      TZ: Europe/London
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Scan world indices, macro curves and index constituents
+        run: python fetch_global.py
+
+      - name: Validate published Global Radar datasets
+        run: |
+          python - <<'PY'
+          import json
+          import math
+          import sys
+          from pathlib import Path
+
+          failures = []
+
+          def walk(node, path="$"):
+              if isinstance(node, float):
+                  if not math.isfinite(node):
+                      failures.append(f"non-finite number at {path}")
+              elif isinstance(node, dict):
+                  for k, v in node.items():
+                      walk(v, f"{path}.{k}")
+              elif isinstance(node, list):
+                  for i, v in enumerate(node):
+                      walk(v, f"{path}[{i}]")
+
+          macro_path = Path("public/data/global_macro.json")
+          stocks_path = Path("public/data/global_stocks.json")
+          map_path = Path("public/data/world_map.json")
+
+          for p in (macro_path, stocks_path, map_path):
+              if not p.exists():
+                  failures.append(f"{p} is missing")
+                  continue
+              raw = p.read_text(encoding="utf-8")
+              for token in ("NaN", "Infinity"):
+                  if token in raw:
+                      failures.append(f"{p.name} contains the literal {token}")
+              walk(json.loads(raw), p.name)
+
+          macro = json.loads(macro_path.read_text(encoding="utf-8"))
+          stocks = json.loads(stocks_path.read_text(encoding="utf-8"))
+          world = json.loads(map_path.read_text(encoding="utf-8"))
+
+          n_countries = len(macro["countries"])
+          n_macro = len(macro["macro"])
+          n_stocks = len(stocks["rows"])
+          if n_countries < 24:
+              failures.append(f"countries {n_countries} < 24")
+          if n_macro < 18:
+              failures.append(f"macro instruments {n_macro} < 18")
+          if n_stocks < 750:
+              failures.append(f"stocks {n_stocks} < 750")
+          for code in ("SP500", "FTSE100", "SX50E", "N225"):
+              if stocks["counts"].get(code, 0) < 1:
+                  failures.append(f"index {code} returned no rows")
+
+          missing_geo = [c["iso2"] for c in macro["countries"] if c["iso2"] not in world["countries"]]
+          if missing_geo:
+              failures.append(f"countries with no map shape: {missing_geo}")
+
+          size_mb = stocks_path.stat().st_size / 1_048_576
+          if size_mb > 1.5:
+              failures.append(f"global_stocks.json is {size_mb:.2f} MB, over the 1.5 MB budget")
+
+          print(f"countries={n_countries} macro={n_macro} stocks={n_stocks} "
+                f"per_index={stocks['counts']} stocks_json={size_mb:.2f}MB "
+                f"crossings={len(stocks['crossings'])}+{len(macro['crossings'])}")
+          if failures:
+              print("VALIDATION FAILED:", file=sys.stderr)
+              for f in failures:
+                  print("  -", f, file=sys.stderr)
+              sys.exit(1)
+          print("validation OK")
+          PY
+
+      - name: Verify frontend JavaScript syntax
+        run: |
+          for f in public/*.js; do
+            echo "checking $f"
+            node --check "$f"
+          done
+
+      - name: Commit refreshed Global Radar data
+        run: |
+          git config user.name "soylee22"
+          git config user.email "leeslater1992@gmail.com"
+          git add public/data/global_macro.json public/data/global_stocks.json
+          if git diff --staged --quiet; then
+            echo "Global radar data unchanged"
+          else
+            git commit -m "data: global radar scan $(date -u +%Y-%m-%dT%H:%MZ)"
+            git pull --rebase origin main
+            git push
+          fi
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload static site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

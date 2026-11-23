@@ -1,0 +1,252 @@
+[
+ {
+  "ticker": "ADS.DE",
+  "name": "Adidas",
+  "sector": "Consumer Discretionary"
+ },
+ {
+  "ticker": "ADYEN.AS",
+  "name": "Adyen",
+  "sector": "Financials"
+ },
+ {
+  "ticker": "AD.AS",
+  "name": "Ahold Delhaize",
+  "sector": "Consumer Staples"
+ },
+ {
+  "ticker": "AI.PA",
+  "name": "Air Liquide",
+  "sector": "Materials"
+ },
+ {
+  "ticker": "AIR.PA",
+  "name": "Airbus",
+  "sector": "Industrials"
+ },
+ {
+  "ticker": "ALV.DE",
+  "name": "Allianz",
+  "sector": "Financials"
+ },
+ {
+  "ticker": "ABI.BR",
+  "name": "Anheuser-Busch InBev",
+  "sector": "Consumer Staples"
+ },
+ {
+  "ticker": "ARGX.BR",
+  "name": "Argenx",
+  "sector": "Health Care"
+ },
+ {
+  "ticker": "ASML.AS",
+  "name": "ASML Holding",
+  "sector": "Information Technology"
+ },
+ {
+  "ticker": "CS.PA",
+  "name": "Axa",
+  "sector": "Financials"
+ },
+ {
+  "ticker": "BAS.DE",
+  "name": "BASF",
+  "sector": "Materials"
+ },
+ {
+  "ticker": "BAYN.DE",
+  "name": "Bayer",
+  "sector": "Health Care"
+ },
+ {
+  "ticker": "BBVA.MC",
+  "name": "BBVA",
+  "sector": "Financials"
+ },
+ {
+  "ticker": "SAN.MC",
+  "name": "Banco Santander",
+  "sector": "Financials"
+ },
+ {
+  "ticker": "BMW.DE",
+  "name": "BMW",
+  "sector": "Consumer Discretionary"
+ },
+ {
+  "ticker": "BNP.PA",
+  "name": "BNP Paribas",
+  "sector": "Financials"
+ },
+ {
+  "ticker": "BN.PA",
+  "name": "Danone",
+  "sector": "Consumer Staples"
+ },
+ {
+  "ticker": "DBK.DE",
+  "name": "Deutsche Bank",
+  "sector": "Financials"
+ },
+ {
+  "ticker": "DB1.DE",
+  "name": "Deutsche Börse",
+  "sector": "Financials"
+ },
+ {
+  "ticker": "DHL.DE",
+  "name": "Deutsche Post",
+  "sector": "Industrials"
+ },
+ {
+  "ticker": "DTE.DE",
+  "name": "Deutsche Telekom",
+  "sector": "Communication"
+ },
+ {
+  "ticker": "ENEL.MI",
+  "name": "Enel",
+  "sector": "Utilities"
+ },
+ {
+  "ticker": "ENGI.PA",
+  "name": "Engie",
+  "sector": "Utilities"
+ },
+ {
+  "ticker": "ENI.MI",
+  "name": "Eni",
+  "sector": "Energy"
+ },
+ {
+  "ticker": "EL.PA",
+  "name": "EssilorLuxottica",
+  "sector": "Health Care"
+ },
+ {
+  "ticker": "RACE.MI",
+  "name": "Ferrari",
+  "sector": "Consumer Discretionary"
+ },
+ {
+  "ticker": "RMS.PA",
+  "name": "Hermès",
+  "sector": "Consumer Discretionary"
+ },
+ {
+  "ticker": "IBE.MC",
+  "name": "Iberdrola",
+  "sector": "Utilities"
+ },
+ {
+  "ticker": "ITX.MC",
+  "name": "Inditex",
+  "sector": "Consumer Discretionary"
+ },
+ {
+  "ticker": "IFX.DE",
+  "name": "Infineon Technologies",
+  "sector": "Information Technology"
+ },
+ {
+  "ticker": "INGA.AS",
+  "name": "ING Group",
+  "sector": "Financials"
+ },
+ {
+  "ticker": "ISP.MI",
+  "name": "Intesa Sanpaolo",
+  "sector": "Financials"
+ },
+ {
+  "ticker": "OR.PA",
+  "name": "L'Oréal",
+  "sector": "Consumer Staples"
+ },
+ {
+  "ticker": "MC.PA",
+  "name": "LVMH Moët Hennessy Louis Vuitton",
+  "sector": "Consumer Discretionary"
+ },
+ {
+  "ticker": "MBG.DE",
+  "name": "Mercedes-Benz Group",
+  "sector": "Consumer Discretionary"
+ },
+ {
+  "ticker": "MUV2.DE",
+  "name": "Munich Re",
+  "sector": "Financials"
+ },
+ {
+  "ticker": "NOKIA.HE",
+  "name": "Nokia",
+  "sector": "Information Technology"
+ },
+ {
+  "ticker": "NDA-FI.HE",
+  "name": "Nordea",
+  "sector": "Financials"
+ },
+ {
+  "ticker": "PRX.AS",
+  "name": "Prosus",
+  "sector": "Consumer Discretionary"
+ },
+ {
+  "ticker": "RHM.DE",
+  "name": "Rheinmetall",
+  "sector": "Industrials"
+ },
+ {
+  "ticker": "SAF.PA",
+  "name": "Safran",
+  "sector": "Industrials"
+ },
+ {
+  "ticker": "SGO.PA",
+  "name": "Saint-Gobain",
+  "sector": "Industrials"
+ },
+ {
+  "ticker": "SAN.PA",
+  "name": "Sanofi",
+  "sector": "Health Care"
+ },
+ {
+  "ticker": "SAP.DE",
+  "name": "SAP",
+  "sector": "Information Technology"
+ },
+ {
+  "ticker": "SU.PA",
+  "name": "Schneider Electric",
+  "sector": "Industrials"
+ },
+ {
+  "ticker": "SIE.DE",
+  "name": "Siemens",
+  "sector": "Industrials"
+ },
+ {
+  "ticker": "ENR.DE",
+  "name": "Siemens Energy",
+  "sector": "Industrials"
+ },
+ {
+  "ticker": "TTE.PA",
+  "name": "TotalEnergies",
+  "sector": "Energy"
+ },
+ {
+  "ticker": "DG.PA",
+  "name": "Vinci SA",
+  "sector": "Industrials"
+ },
+ {
+  "ticker": "UCG.MI",
+  "name": "UniCredit",
+  "sector": "Financials"
+ }
+]
