@@ -138,9 +138,16 @@ def build_report(data: dict[str, Any], t212: dict[str, Any] | None) -> tuple[str
             f"  Total Account: {_fmt_gbp(t212['total_account_gbp'])} | Invested: {_fmt_gbp(t212['invested_gbp'])} | "
             f"Free Cash: {_fmt_gbp(t212['free_cash_gbp'])} | P&L: {_fmt_gbp(t212['total_pnl_gbp'], signed=True)} ({t212['total_pnl_pct']:+.2f}%)",
         ]
+        for aid in data["order"]:
+            sl = (t212.get("sleeves") or {}).get(aid)
+            if sl and (sl.get("value_gbp", 0) > 0 or sl.get("quantity", 0) > 0):
+                plain_lines.append(
+                    f"  Sleeve {aid:4s}: {_fmt_gbp(sl['value_gbp'])} ({sl['weight_total_pct']:.1f}%) | "
+                    f"{_fmt_gbp(sl['pnl_gbp'], signed=True)} ({sl['pnl_pct']:+.2f}%)"
+                )
         for p in t212.get("other_positions", []):
             plain_lines.append(
-                f"  Legacy {p['short_name']}: {_fmt_gbp(p['value_gbp'])} ({_fmt_gbp(p['pnl_gbp'], signed=True)}, {p['pnl_pct']:+.2f}%)"
+                f"  Other  {p['short_name']}: {_fmt_gbp(p['value_gbp'])} ({_fmt_gbp(p['pnl_gbp'], signed=True)}, {p['pnl_pct']:+.2f}%)"
             )
     plain_lines += ["", f"Dashboard: {SITE_URL}"]
     plain = "\n".join(plain_lines)
@@ -186,6 +193,38 @@ def build_report(data: dict[str, Any], t212: dict[str, Any] | None) -> tuple[str
     t212_html = ""
     if t212 and t212.get("connected"):
         pnl_col = "#15803d" if t212["total_pnl_gbp"] >= 0 else "#dc2626"
+        sleeve_rows = ""
+        for aid in data["order"]:
+            sl = (t212.get("sleeves") or {}).get(aid)
+            if not sl or (sl.get("value_gbp", 0) <= 0 and sl.get("quantity", 0) <= 0):
+                continue
+            sc = "#15803d" if sl["pnl_gbp"] >= 0 else "#dc2626"
+            a_meta = data["assets"][aid]
+            sleeve_rows += f"""
+            <tr>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#111827;font-weight:700;font-size:12px;">
+                {html.escape(aid)}<br><span style="font-weight:400;font-size:11px;color:#6b7280;">{html.escape(a_meta['region'])}</span>
+              </td>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right;white-space:nowrap;color:#374151;font-size:12px;">{sl['weight_total_pct']:.1f}%</td>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right;white-space:nowrap;color:#111827;font-weight:600;font-size:12px;">{_fmt_gbp(sl['value_gbp'])}</td>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right;white-space:nowrap;color:{sc};font-weight:600;font-size:12px;">{_fmt_gbp(sl['pnl_gbp'], signed=True)}<br><span style="font-size:11px;">({sl['pnl_pct']:+.2f}%)</span></td>
+            </tr>"""
+
+        sleeve_table = ""
+        if sleeve_rows:
+            sleeve_table = f"""
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:10px;">
+              <thead>
+                <tr>
+                  <th style="padding:6px 8px;text-align:left;font-size:10px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;">Sleeve</th>
+                  <th style="padding:6px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;">Weight</th>
+                  <th style="padding:6px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;">Value</th>
+                  <th style="padding:6px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;">P&amp;L</th>
+                </tr>
+              </thead>
+              <tbody>{sleeve_rows}</tbody>
+            </table>"""
+
         other_rows = ""
         for p in t212.get("other_positions", []):
             pc = "#15803d" if p["pnl_gbp"] >= 0 else "#dc2626"
@@ -203,7 +242,7 @@ def build_report(data: dict[str, Any], t212: dict[str, Any] | None) -> tuple[str
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:10px;">
               <thead>
                 <tr>
-                  <th style="padding:6px 8px;text-align:left;font-size:10px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;">Holding</th>
+                  <th style="padding:6px 8px;text-align:left;font-size:10px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;">Other Holding</th>
                   <th style="padding:6px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;">Value</th>
                   <th style="padding:6px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;">P&amp;L</th>
                 </tr>
@@ -237,6 +276,7 @@ def build_report(data: dict[str, Any], t212: dict[str, Any] | None) -> tuple[str
                 </td>
               </tr>
             </table>
+            {sleeve_table}
             {other_table}
           </td>
         </tr>"""
