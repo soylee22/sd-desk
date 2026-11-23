@@ -703,7 +703,101 @@ html, body {
   margin-bottom: 8px;
 }
 
+/* Collapsible Watchlist state (desktop & mobile) */
+body.rail-collapsed .tv-shell {
+  grid-template-columns: 52px 1fr;
+}
+body.rail-collapsed .tv-right-panel {
+  display: none;
+}
+
+.tv-drawer-backdrop {
+  display: none;
+}
+
 @media (max-width: 1180px) {
   .tv-shell { grid-template-columns: 48px 1fr 270px; }
+  body.rail-collapsed .tv-shell { grid-template-columns: 48px 1fr; }
   .tv-split-page { grid-template-columns: 1fr; }
+}
+
+/* Mobile-first responsive TradingView shell (<= 900px) */
+@media (max-width: 900px) {
+  html, body { height: 100%; overflow: hidden; }
+  .tv-shell, body.rail-collapsed .tv-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: 42px 1fr;
+    gap: 2px;
+  }
+  .tv-left-rail { display: none; }
+  .tv-center { grid-column: 1; grid-row: 2; }
+
+  .tv-topbar {
+    height: 42px;
+    padding: 0 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    gap: 4px;
+  }
+  .tv-topbar::-webkit-scrollbar { display: none; }
+  .tv-corner, .tv-asof, #btnT212Pill { display: none; }
+  .tv-sep { margin: 0 3px; }
+  .tv-tool-btn { padding: 0 6px; font-size: 12px; height: 28px; }
+  .tv-symbol-btn { padding: 0 6px; font-size: 12px; margin-left: 0; }
+
+  /* Right panel becomes a clean slide-over drawer on mobile (hidden when collapsed) */
+  .tv-right-panel {
+    display: flex;
+    position: fixed;
+    top: 42px;
+    right: 0;
+    bottom: 0;
+    width: min(320px, 88vw);
+    z-index: 40;
+    border-left: 1px solid var(--tv-border);
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.75);
+  }
+  body.rail-collapsed .tv-right-panel { display: none; }
+  .tv-drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: 42px 0 0 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 35;
+  }
+  body.rail-collapsed .tv-drawer-backdrop { display: none; }
+
+  /* Stack 2x2 quadrants into scrollable 1-column cards on phone */
+  #view-quadrants { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .quad-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(4, 300px);
+    height: auto;
+  }
+  .quad-grid.single-focus {
+    grid-template-rows: 1fr;
+    height: 100%;
+  }
+  .quad-header { right: 98px; }
+  .quad-name { display: none; }
+
+  .tv-subbar {
+    height: auto;
+    min-height: 36px;
+    padding: 6px 8px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .tv-bottom-bar {
+    padding: 0 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tv-bottom-bar::-webkit-scrollbar { display: none; }
+  #utcClock { display: none; }
+
+  .mult-grid { grid-template-columns: repeat(2, 1fr); }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .norm-table-wrap, .tv-panel-pad { overflow-x: auto; }
 }

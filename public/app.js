@@ -629,6 +629,23 @@
     $("btnPullT212ToSolver").addEventListener("click", loadT212IntoSolver);
     $("btnUseT212Total").addEventListener("click", loadT212TotalAsLumpSum);
 
+    const setRailCollapsed = (collapsed) => {
+      document.body.classList.toggle("rail-collapsed", collapsed);
+      $("btnToggleRail")?.classList.toggle("active", !collapsed);
+      requestAnimationFrame(() => {
+        if (state.view === "quadrants") renderQuadrants(true);
+        else if (state.view === "normalised" && normChart) normChart.render();
+      });
+    };
+    $("btnToggleRail")?.addEventListener("click", () => {
+      setRailCollapsed(!document.body.classList.contains("rail-collapsed"));
+    });
+    $("btnCloseRail")?.addEventListener("click", () => setRailCollapsed(true));
+    $("drawerBackdrop")?.addEventListener("click", () => setRailCollapsed(true));
+
+    // Default watchlist collapsed on narrow/mobile screens so charts use 100% width
+    setRailCollapsed(window.innerWidth <= 900);
+
     window.addEventListener("resize", () => {
       if (state.view === "quadrants") renderQuadrants(true);
       else if (state.view === "normalised" && normChart) normChart.render();

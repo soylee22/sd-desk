@@ -53,6 +53,9 @@
         <span class="tv-sep"></span>
         <span class="tv-asof" id="asofTag">Loading...</span>
         <button class="tv-tool-btn primary" id="btnRefresh">Refresh</button>
+        <button class="tv-tool-btn" id="btnToggleRail" title="Show or hide Watchlist & Payday panel" aria-label="Toggle Watchlist">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="15" y1="4" x2="15" y2="20"/></svg>
+        </button>
       </div>
     </header>
 
@@ -331,11 +334,15 @@
     </main>
 
     <!-- RIGHT PANEL: TRADINGVIEW WATCHLIST + PAYDAY & DETAILS INSPECTOR -->
-    <aside class="tv-right-panel">
+    <div class="tv-drawer-backdrop" id="drawerBackdrop"></div>
+    <aside class="tv-right-panel" id="rightPanel">
       <div class="tv-pane" style="flex: 0 0 auto;">
         <div class="tv-pane-head">
           <span>Watchlist</span>
-          <span id="railScaleTag" style="font-size:11px; color:var(--tv-dim); font-weight:500;">Max Log W</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span id="railScaleTag" style="font-size:11px; color:var(--tv-dim); font-weight:500;">Max Log W</span>
+            <button class="icon-btn" id="btnCloseRail" title="Minimise Watchlist" aria-label="Close Watchlist">×</button>
+          </div>
         </div>
         <div class="wl-cols">
           <span>Symbol</span>
