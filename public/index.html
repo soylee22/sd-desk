@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CSP1 · CUKX · SJPA · CSWG · IGL5 | SD Desk</title>
+  <title>CNX1 · CUKX · IUSU · IHCU · SJPA · IGL5 | SD Desk</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -16,7 +16,7 @@
         </div>
 
         <button class="tv-symbol-btn" id="btnActiveSym" title="Active symbol">
-          <span id="topSymLabel">5-ETF</span>
+          <span id="topSymLabel">6-ETF</span>
         </button>
 
         <span class="tv-sep"></span>
@@ -67,7 +67,7 @@
 
     <!-- LEFT VERTICAL ICON RAIL (TradingView layout__area--left, 52px) -->
     <nav class="tv-left-rail" aria-label="Workspace tools">
-      <button class="tv-rail-btn active" data-view="quadrants" title="5-Chart Channels">
+      <button class="tv-rail-btn active" data-view="quadrants" title="6-Chart Channels">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>
       </button>
       <button class="tv-rail-btn" data-view="normalised" title="Normalised SD Overlay">
@@ -101,16 +101,16 @@
     <!-- CENTER CHART WORKSPACE (TradingView layout__area--center) -->
     <main class="tv-center">
       <div class="tv-views">
-        <!-- VIEW 1: 4 QUADRANTS -->
+        <!-- VIEW 1: 6-ETF CHANNEL GRID -->
         <section class="view-panel active" id="view-quadrants">
           <div class="quad-grid" id="quadGrid">
-            <div class="quad-cell" data-asset="CSP1">
-              <div class="quad-header" id="hdr-CSP1"></div>
+            <div class="quad-cell" data-asset="CNX1">
+              <div class="quad-header" id="hdr-CNX1"></div>
               <div class="quad-tools">
-                <button class="icon-btn" data-reset="CSP1" title="Reset zoom">↺</button>
-                <button class="icon-btn" data-focus="CSP1" title="Maximize">⤢</button>
+                <button class="icon-btn" data-reset="CNX1" title="Reset zoom">↺</button>
+                <button class="icon-btn" data-focus="CNX1" title="Maximize">⤢</button>
               </div>
-              <div class="chart-canvas-wrap"><canvas id="cv-CSP1"></canvas></div>
+              <div class="chart-canvas-wrap"><canvas id="cv-CNX1"></canvas></div>
             </div>
             <div class="quad-cell" data-asset="CUKX">
               <div class="quad-header" id="hdr-CUKX"></div>
@@ -120,6 +120,22 @@
               </div>
               <div class="chart-canvas-wrap"><canvas id="cv-CUKX"></canvas></div>
             </div>
+            <div class="quad-cell" data-asset="IUSU">
+              <div class="quad-header" id="hdr-IUSU"></div>
+              <div class="quad-tools">
+                <button class="icon-btn" data-reset="IUSU" title="Reset zoom">↺</button>
+                <button class="icon-btn" data-focus="IUSU" title="Maximize">⤢</button>
+              </div>
+              <div class="chart-canvas-wrap"><canvas id="cv-IUSU"></canvas></div>
+            </div>
+            <div class="quad-cell" data-asset="IHCU">
+              <div class="quad-header" id="hdr-IHCU"></div>
+              <div class="quad-tools">
+                <button class="icon-btn" data-reset="IHCU" title="Reset zoom">↺</button>
+                <button class="icon-btn" data-focus="IHCU" title="Maximize">⤢</button>
+              </div>
+              <div class="chart-canvas-wrap"><canvas id="cv-IHCU"></canvas></div>
+            </div>
             <div class="quad-cell" data-asset="SJPA">
               <div class="quad-header" id="hdr-SJPA"></div>
               <div class="quad-tools">
@@ -128,15 +144,7 @@
               </div>
               <div class="chart-canvas-wrap"><canvas id="cv-SJPA"></canvas></div>
             </div>
-            <div class="quad-cell" data-asset="CSWG">
-              <div class="quad-header" id="hdr-CSWG"></div>
-              <div class="quad-tools">
-                <button class="icon-btn" data-reset="CSWG" title="Reset zoom">↺</button>
-                <button class="icon-btn" data-focus="CSWG" title="Maximize">⤢</button>
-              </div>
-              <div class="chart-canvas-wrap"><canvas id="cv-CSWG"></canvas></div>
-            </div>
-            <div class="quad-cell quad-cell-wide" data-asset="IGL5">
+            <div class="quad-cell" data-asset="IGL5">
               <div class="quad-header" id="hdr-IGL5"></div>
               <div class="quad-tools">
                 <button class="icon-btn" data-reset="IGL5" title="Reset zoom">↺</button>
@@ -196,7 +204,7 @@
             </div>
             <div class="tv-subbar-group">
               <button class="tv-tool-btn" id="btnUseT212Total" title="Set Lump Sum to your live total Trading 212 account value (useful for switchover)">Use T212 Total as Lump Sum</button>
-              <button class="tv-tool-btn" id="btnPullT212ToSolver" title="Load existing CSP1/CUKX/SJPA/CSWG/IGL5 balances from T212 for zero-sell water-filling">Pull T212 Sleeves</button>
+              <button class="tv-tool-btn" id="btnPullT212ToSolver" title="Load existing CNX1/CUKX/IUSU/IHCU/SJPA/IGL5 balances from T212 for zero-sell water-filling">Pull T212 Sleeves</button>
             </div>
           </div>
 
@@ -229,7 +237,7 @@
                 <label><span id="betaLbl">SD Convexity (beta)</span><span id="betaVal">0.65</span></label>
                 <input type="range" id="inBeta" min="0" max="2.5" step="0.05" value="0.65" />
                 <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--tv-dim); margin-top:2px;">
-                  <span>0.0 (Flat 1:1:1:1)</span>
+                  <span>0.0 (Flat 1:1:1:1:1)</span>
                   <span>0.65 (Balanced)</span>
                   <span>2.5 (Steep)</span>
                 </div>
@@ -238,7 +246,7 @@
               <div class="field">
                 <label><span>IGL5 Gilt Blow-Off Valve</span></label>
                 <select id="inBondValve">
-                  <option value="all_gate" selected>Only When ALL Four &gt;= +1.5 SD (Matches Monthly Rule)</option>
+                  <option value="all_gate" selected>Only When ALL Five &gt;= +1.5 SD (Matches Monthly Rule)</option>
                   <option value="off">Off (100% Equity Always)</option>
                   <option value="per_asset">Optional: Per-Asset Taper (+1.5 to +2.0 SD -> IGL5)</option>
                 </select>
@@ -251,10 +259,11 @@
 
               <div id="existingHoldingsBox" style="display:none;">
                 <div class="inline-grid-2">
-                  <div class="mini-field"><span>Current CSP1 (£)</span><input type="number" id="ex-CSP1" value="0" min="0" step="100" /></div>
+                  <div class="mini-field"><span>Current CNX1 (£)</span><input type="number" id="ex-CNX1" value="0" min="0" step="100" /></div>
                   <div class="mini-field"><span>Current CUKX (£)</span><input type="number" id="ex-CUKX" value="0" min="0" step="100" /></div>
+                  <div class="mini-field"><span>Current IUSU (£)</span><input type="number" id="ex-IUSU" value="0" min="0" step="100" /></div>
+                  <div class="mini-field"><span>Current IHCU (£)</span><input type="number" id="ex-IHCU" value="0" min="0" step="100" /></div>
                   <div class="mini-field"><span>Current SJPA (£)</span><input type="number" id="ex-SJPA" value="0" min="0" step="100" /></div>
-                  <div class="mini-field"><span>Current CSWG (£)</span><input type="number" id="ex-CSWG" value="0" min="0" step="100" /></div>
                   <div class="mini-field"><span>Current IGL5 (£)</span><input type="number" id="ex-IGL5" value="0" min="0" step="100" /></div>
                 </div>
               </div>
@@ -300,7 +309,7 @@
           <div class="kpi-grid" id="t212Kpis"></div>
 
           <div class="tv-panel-pad" style="flex:1;">
-            <div class="tv-sec-title">SD Desk Strategy Sleeves (CSP1 · CUKX · SJPA · CSWG · IGL5)</div>
+            <div class="tv-sec-title">SD Desk Strategy Sleeves (CNX1 · CUKX · IUSU · IHCU · SJPA · IGL5)</div>
             <table class="tv-table" style="margin-bottom:18px;">
               <thead>
                 <tr>
@@ -511,7 +520,7 @@
 
           <div class="tv-kv-list" style="font-size:11.5px; color:var(--tv-dim);">
             <div style="color:var(--tv-muted); font-weight:600;">Monthly Rules (Uncapped)</div>
-            <div>1. Pick lowest equity Z (CSP1, CUKX, SJPA, CSWG).</div>
+            <div>1. Pick lowest equity Z (CNX1, CUKX, IUSU, IHCU, SJPA).</div>
             <div>2. z &lt;= 0.0 SD: Buy 100% + sweep all IGL5.</div>
             <div>3. 0.0 to +1.5 SD: Buy 100% new cash only.</div>
             <div>4. All &gt;= +1.5 SD: Park 100% in IGL5.</div>

@@ -103,7 +103,7 @@ def build_report(data: dict[str, Any], t212: dict[str, Any] | None) -> tuple[str
     z_by_id = {aid: stats_by_id[aid]["z"] for aid in data["order"]}
     mults = _zero_prior_multipliers(z_by_id, beta=0.65, gate_z=1.5)
 
-    asof = data["assets"]["CSP1"].get("asof", cd["today"])
+    asof = data["assets"][data["order"][0]].get("asof", cd["today"])
     eq_order = [a["id"] for a in fetch_data.ASSETS if a["role"] == "equity" and a["id"] in z_by_id]
     eq_ranked = sorted(eq_order, key=lambda k: z_by_id[k])
     z_summary = " | ".join(f"{k} {z_by_id[k]:+.2f}" for k in eq_ranked)
@@ -116,7 +116,7 @@ def build_report(data: dict[str, Any], t212: dict[str, Any] | None) -> tuple[str
         f"Current Action: {rec['action']}",
         rec["headline"],
         "",
-        "Full-History Standings (Max Log 1W, CSWG 2010+ & IGL5 2009+ Spliced):",
+        "Full-History Standings (Max Log 1W, IUSU/IHCU 2010+ & IGL5 2009+ Spliced):",
     ]
     for aid in sorted(data["order"], key=lambda k: stats_by_id[k]["z"]):
         a = data["assets"][aid]

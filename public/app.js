@@ -15,10 +15,10 @@
     bands: "34",
     bondMode: "spliced", // Full 2009+ history by default
     focusedAsset: null,
-    selectedAsset: "CSP1",
+    selectedAsset: "CNX1",
     activeRange: "ALL",
     normMode: "channel",
-    normVisible: { CSP1: true, CUKX: true, SJPA: true, CSWG: true, IGL5: true },
+    normVisible: { CNX1: true, CUKX: true, IUSU: true, IHCU: true, SJPA: true, IGL5: true },
     t212: null,
     t212Loading: false,
   };
@@ -42,7 +42,7 @@
   };
   const fmtZ = (z) => `${z >= 0 ? "+" : ""}${Number(z || 0).toFixed(2)} SD`;
   const fmtPct = (v) => `${v >= 0 ? "+" : ""}${Number(v || 0).toFixed(2)}%`;
-  const badgeChar = (id) => (id === "CSWG" ? "A" : "i");
+  const badgeChar = () => "i";
 
   function zCls(z) {
     if (z <= 0.0) return "z-low";
@@ -89,7 +89,7 @@
     $("asofTag").textContent = asof ? `LSE ${asof}${gen ? " · Sync " + gen : ""}` : "";
     const lbTxt = state.lookback === "max" ? "Max" : `${state.lookback}D`;
     $("railScaleTag").textContent = `${lbTxt} ${state.useLog ? "Log" : "Lin"} ${state.tf === "1W" ? "W" : "D"}`;
-    $("topSymLabel").textContent = state.focusedAsset || "5-ETF";
+    $("topSymLabel").textContent = state.focusedAsset || "6-ETF";
     $("btnLogToggle").classList.toggle("active", state.useLog);
   }
 
@@ -134,7 +134,7 @@
     });
 
     // Selected symbol details inspector (TradingView bottom-right pane style)
-    const sel = computed[state.selectedAsset] || computed.CSP1;
+    const sel = computed[state.selectedAsset] || computed.CNX1;
     const sa = sel.asset;
     const ss = sel.stats;
     const spanTxt = sel.series.t.length ? `${sel.series.t[0].slice(0, 4)} to ${sel.series.t[sel.series.t.length - 1].slice(0, 4)}` : "";
@@ -160,7 +160,7 @@
       const hdr = $("hdr-" + id);
       const extraNote = id === "IGL5" && state.bondMode === "spliced"
         ? " (2009+ IGLS)"
-        : (id === "CSWG" ? " (2010+ EWL splice)" : "");
+        : (id === "IUSU" ? " (2010+ XLU splice)" : (id === "IHCU" ? " (2010+ XLV splice)" : ""));
       hdr.innerHTML = `
         <div class="quad-title">
           <span class="ishares-dot" style="background:${a.color}">${badgeChar(a.id)}</span>
@@ -389,7 +389,7 @@
       hint.style.color = "#22ab94";
       hint.textContent = state.t212.strategy_total_gbp > 0
         ? `Loaded live T212 sleeves (${fmtGbp0(state.t212.strategy_total_gbp)} across SD ETFs).`
-        : `T212 synced live: £0 in CSP1/CUKX/SJPA/CSWG/IGL5 so far (currently holding ${legacyNames || "legacy positions"}). Click "Use T212 Total as Lump Sum" to model switching over.`;
+        : `T212 synced live: £0 in CNX1/CUKX/IUSU/IHCU/SJPA/IGL5 so far (currently holding ${legacyNames || "legacy positions"}). Click "Use T212 Total as Lump Sum" to model switching over.`;
     }
     switchView("lumpsum");
     renderSolver();
@@ -611,7 +611,7 @@
     document.querySelectorAll("[data-focus]").forEach((b) => b.addEventListener("click", () => toggleFocus(b.dataset.focus, false)));
 
     document.querySelectorAll("[data-lump]").forEach((b) => b.addEventListener("click", () => { $("inLumpSum").value = b.dataset.lump; renderSolver(); }));
-    ["inLumpSum", "inAlgModel", "inBeta", "inBondValve", "chkUseExisting", "ex-CSP1", "ex-CUKX", "ex-SJPA", "ex-CSWG", "ex-IGL5"].forEach((id) => {
+    ["inLumpSum", "inAlgModel", "inBeta", "inBondValve", "chkUseExisting", "ex-CNX1", "ex-CUKX", "ex-IUSU", "ex-IHCU", "ex-SJPA", "ex-IGL5"].forEach((id) => {
       const el = $(id);
       if (el) { el.addEventListener("input", renderSolver); el.addEventListener("change", renderSolver); }
     });

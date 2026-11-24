@@ -2,8 +2,8 @@
 (function (root) {
   "use strict";
 
-  const EQUITIES = ["CSP1", "CUKX", "SJPA", "CSWG"];
-  const ALL_IDS = ["CSP1", "CUKX", "SJPA", "CSWG", "IGL5"];
+  const EQUITIES = ["CNX1", "CUKX", "IUSU", "IHCU", "SJPA"];
+  const ALL_IDS = ["CNX1", "CUKX", "IUSU", "IHCU", "SJPA", "IGL5"];
 
   function parseIsoDate(s) {
     const parts = String(s).split("-");
@@ -214,7 +214,7 @@
     } else {
       action = "PARK IN IGL5";
       tone = "park";
-      headline = `All four equity sleeves sit at or above +${gate.toFixed(1)} SD (lowest is ${bestId} at ${zStr}). Park 100% in IGL5 until one resets to 0.0 SD.`;
+      headline = `All five equity sleeves sit at or above +${gate.toFixed(1)} SD (lowest is ${bestId} at ${zStr}). Park 100% in IGL5 until one resets to 0.0 SD.`;
     }
 
     return {

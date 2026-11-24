@@ -1,6 +1,6 @@
 # SD Desk
 
-TradingView-styled 5-ETF standard deviation channel dashboard, normalised regression overlay, zero-prior algebraic lump-sum allocator, and daily email briefing for `CSP1`, `CUKX`, `SJPA`, `CSWG` (spliced with `EWL` × `GBP=X` back to September 2010), and `IGL5` (spliced with `IGLS.L` back to April 2009).
+TradingView-styled 6-ETF standard deviation channel dashboard, normalised regression overlay, zero-prior algebraic lump-sum allocator, and daily email briefing for `CNX1`, `CUKX`, `IUSU` (spliced with `XLU` × `GBP=X` back to September 2010), `IHCU` (spliced with `XLV` × `GBP=X` back to September 2010), `SJPA`, and `IGL5` (spliced with `IGLS.L` back to April 2009).
 
 The Global Radar adds three more views on the same Welford OLS maths:
 
@@ -31,7 +31,7 @@ Open `http://127.0.0.1:8765`.
 
 | File | Built by | Contents |
 |---|---|---|
-| `public/data/market_data.{json,js}` | `fetch_data.py` | The four core LSE ETFs, full daily and weekly series |
+| `public/data/market_data.{json,js}` | `fetch_data.py` | The six core LSE ETFs (`CNX1`, `CUKX`, `IUSU`, `IHCU`, `SJPA`, `IGL5`), full daily and weekly series |
 | `public/data/global_macro.json` | `fetch_global.py` | 28 country benchmarks and 22 macro instruments: full weekly series, the 2,500-trading-day daily window, and four stat blocks each |
 | `public/data/global_stocks.json` | `fetch_global.py` | About 875 constituents in compact array rows, four stat blocks each plus a 100-point weekly price sample for the chart modal |
 | `public/data/world_map.json` | vendored, static | Natural Earth 110m country outlines, pre-projected to a 1000x500 equirectangular viewBox and keyed by ISO-3166 alpha-2 |
