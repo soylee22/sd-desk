@@ -14,19 +14,24 @@ concurrency:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
+  actions: read
 
 jobs:
   daily-email:
     runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.gate.outputs.skip }}
     env:
       TZ: Europe/London
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
           cache: pip
@@ -73,3 +78,41 @@ jobs:
             git pull --rebase origin main
             git push
           fi
+
+      - name: Configure GitHub Pages
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/configure-pages@v6
+
+      - name: Upload static site artifact
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: public
+          include-hidden-files: true
+
+  deploy:
+    needs: daily-email
+    if: needs.daily-email.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Wait for github-pages artifact metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 20); do
+            count=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts?name=github-pages" --jq '.total_count')
+            if [ "${count:-0}" -ge 1 ]; then
+              echo "Artifact github-pages visible (attempt $i)"
+              exit 0
+            fi
+            echo "Waiting for artifact metadata (attempt $i)..."
+            sleep 3
+          done
+          echo "::warning::Proceeding to deploy after wait timeout"
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

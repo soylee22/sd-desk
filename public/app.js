@@ -659,6 +659,19 @@
     });
   }
 
+  async function fetchFreshMarketData(preserveZoom) {
+    try {
+      const r = await fetch("./data/market_data.json?t=" + Date.now(), { cache: "no-store" });
+      if (r.ok) {
+        const fresh = await r.json();
+        if (fresh && fresh.generated_at !== state.data?.generated_at) {
+          state.data = fresh;
+          renderAll(preserveZoom);
+        }
+      }
+    } catch (_) {}
+  }
+
   async function boot() {
     if (!state.data) {
       const resp = await fetch(IS_LOCAL ? "/api/data" : "./data/market_data.json?t=" + Date.now(), { cache: "no-store" });
@@ -674,19 +687,9 @@
     renderSolver();
     syncT212(null); // Auto-connect locally; safely shows private notice on GitHub Pages
     if (!IS_LOCAL) {
-      // Auto-sync hourly GitHub Actions market_data.json updates every 15 minutes while open
-      setInterval(async () => {
-        try {
-          const r = await fetch("./data/market_data.json?t=" + Date.now(), { cache: "no-store" });
-          if (r.ok) {
-            const fresh = await r.json();
-            if (fresh && fresh.generated_at !== state.data?.generated_at) {
-              state.data = fresh;
-              renderAll(true);
-            }
-          }
-        } catch (_) {}
-      }, 900000);
+      // Immediately bypass any cached market_data.js bundle on page load, then poll every 15 minutes
+      fetchFreshMarketData(false);
+      setInterval(() => fetchFreshMarketData(true), 900000);
     }
   }
 

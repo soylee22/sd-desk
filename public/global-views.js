@@ -142,7 +142,8 @@
   /* ---------------------------------------------------------------- data loading */
 
   async function loadJson(url) {
-    const res = await fetch(url, { cache: "no-store" });
+    const bust = url.includes("world_map.json") ? url : `${url}?t=${Date.now()}`;
+    const res = await fetch(bust, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
     return res.json();
   }
