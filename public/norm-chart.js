@@ -268,10 +268,16 @@
         ctx.lineJoin = "round";
         ctx.beginPath();
         let started = false;
+        let nullRun = 0;
         let lastVal = null;
         for (let i = i0; i <= i1; i++) {
           const v = s.values[i];
-          if (v == null || !Number.isFinite(v)) { started = false; continue; }
+          if (v == null || !Number.isFinite(v)) {
+            nullRun += 1;
+            if (nullRun > 5) started = false;
+            continue;
+          }
+          nullRun = 0;
           const px = xOf(i);
           const py = yOf(v);
           if (!started) { ctx.moveTo(px, py); started = true; }

@@ -146,7 +146,8 @@ def _to_weekly_iso(df: pd.DataFrame) -> pd.DataFrame:
     yw = iso.year.astype(str) + "-" + iso.week.astype(str).str.zfill(2)
     grouped = df.groupby(yw.values, sort=False)
     out = grouped.agg({"close": "last", "volume": "sum"})
-    out.index = pd.DatetimeIndex([g.index[-1] for _, g in grouped])
+    # Stamp each ISO week to its Monday to match Yahoo Finance 1wk bar timestamps across all sleeves
+    out.index = pd.DatetimeIndex([g.index[-1] - pd.Timedelta(days=g.index[-1].weekday()) for _, g in grouped])
     return out.sort_index()
 
 
