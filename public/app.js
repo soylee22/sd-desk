@@ -489,6 +489,8 @@
     document.querySelectorAll("[data-range]").forEach((b) => b.classList.toggle("active", b.dataset.range === code));
     if (state.view === "normalised" && normChart) {
       normChart.setRangePreset(code);
+    } else if (state.view === "swda" && window.SDSwda) {
+      window.SDSwda.setRangePreset(code);
     } else {
       Object.values(quadCharts).forEach((ch) => ch.setRangePreset(code));
     }
@@ -506,6 +508,7 @@
       if (viewName === "quadrants") renderQuadrants(true);
       else if (viewName === "normalised") renderNormalised(true);
       else if (viewName === "lumpsum") renderSolver();
+      else if (viewName === "swda" && window.SDSwda) window.SDSwda.render(false);
       else if (viewName === "portfolio") {
         if (!state.t212) syncT212(false);
         else renderPortfolio();
@@ -539,6 +542,7 @@
     renderQuadrants(preserveZoom);
     if (state.view === "normalised") renderNormalised(preserveZoom);
     if (state.view === "lumpsum") renderSolver();
+    if (state.view === "swda" && window.SDSwda) window.SDSwda.render(preserveZoom);
     if (state.view === "portfolio" && state.t212) renderPortfolio();
   }
 
@@ -654,8 +658,11 @@
     window.addEventListener("resize", () => {
       if (state.view === "quadrants") renderQuadrants(true);
       else if (state.view === "normalised" && normChart) normChart.render();
+      else if (state.view === "swda" && window.SDSwda) window.SDSwda.resize();
     });
   }
+
+  window.SD_DESK_DATA_LIVE = () => state.data;
 
   async function fetchFreshMarketData(preserveZoom) {
     try {
@@ -679,6 +686,7 @@
     normChart = new C.NormalisedChart($("cv-norm"));
     bindUI();
     if (window.SDGlobal) window.SDGlobal.bind();
+    if (window.SDSwda) window.SDSwda.bind();
     updateClock();
     setInterval(updateClock, 1000);
     renderAll(false);

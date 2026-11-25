@@ -280,6 +280,232 @@ def compute_recommendation(summary_by_id: dict[str, dict[str, Any]], gate_z: flo
     }
 
 
+def _compute_swda_window_state(
+    dates: list[str],
+    closes: np.ndarray,
+    window_bars: int | None,
+    top_enter: float = 1.5,
+    top_exit: float = 0.5,
+    dip_enter: float = -1.0,
+    dip_exit: float = 0.0,
+) -> dict[str, Any]:
+    """Strictly causal monthly dual-hysteresis state machine for SWDA Step DeepDip (80/100/130%)."""
+    n = len(closes)
+    if n < 60:
+        return {"state": "NORMAL", "switches": [], "switches_per_yr": 0.0}
+
+    y = np.log(closes.astype(np.float64))
+    z_series = np.full(n, np.nan, dtype=np.float64)
+
+    if window_bars is None:
+        # Causal expanding Welford OLS (min 156w = 3y warmup)
+        mx = my = cxx = cyy = cxy = 0.0
+        for i in range(n):
+            yi = float(y[i])
+            x = float(i + 1)
+            dx = x - mx
+            dy = yi - my
+            mx += dx / x
+            my += dy / x
+            dx2 = x - mx
+            dy2 = yi - my
+            cxx += dx * dx2
+            cyy += dy * dy2
+            cxy += dx * dy2
+            if i + 1 >= 156:
+                slope = cxy / cxx if cxx > 0 else 0.0
+                end_fit = my + slope * (x - mx)
+                sse = max(cyy - slope * cxy, 0.0)
+                sd = math.sqrt(sse / (x - 1.0))
+                z_series[i] = (yi - end_fit) / sd if sd > 0 else 0.0
+    else:
+        w = min(window_bars, n)
+        if n >= w:
+            x = np.arange(1.0, w + 1.0)
+            mx = float(x.mean())
+            dx = x - mx
+            cxx = float(np.sum(dx * dx))
+            x_end = w - mx
+            for i in range(w - 1, n):
+                yw = y[i - w + 1 : i + 1]
+                my = float(yw.mean())
+                dy = yw - my
+                cxy = float(np.dot(dx, dy))
+                cyy = float(np.dot(dy, dy))
+                slope = cxy / cxx if cxx > 0 else 0.0
+                end_fit = my + slope * x_end
+                sse = max(cyy - slope * cxy, 0.0)
+                sd = math.sqrt(sse / (w - 1.0))
+                z_series[i] = (float(yw[-1]) - end_fit) / sd if sd > 0 else 0.0
+
+    # Walk first weekly bar of each calendar month strictly causally
+    state = "NORMAL"
+    switches: list[dict[str, Any]] = []
+    last_ym = ""
+    first_valid_i = None
+    last_month_state = "NORMAL"
+    last_month_date = ""
+    last_month_z = 0.0
+
+    for i in range(n):
+        if math.isnan(z_series[i]):
+            continue
+        if first_valid_i is None:
+            first_valid_i = i
+        ym = dates[i][:7]
+        if ym == last_ym:
+            continue
+        last_ym = ym
+        zt = float(z_series[i])
+        old = state
+        if state == "NORMAL":
+            if zt >= top_enter:
+                state = "HOT"
+            elif zt <= dip_enter:
+                state = "DIP"
+        elif state == "HOT":
+            if zt <= dip_enter:
+                state = "DIP"
+            elif zt <= top_exit:
+                state = "NORMAL"
+        elif state == "DIP":
+            if zt >= top_enter:
+                state = "HOT"
+            elif zt >= dip_exit:
+                state = "NORMAL"
+
+        last_month_state = state
+        last_month_date = dates[i]
+        last_month_z = zt
+        if state != old:
+            switches.append({
+                "date": dates[i],
+                "from": old,
+                "to": state,
+                "z": round(zt, 2),
+                "px": round(float(closes[i]), 2),
+                "target_eq": 80 if state == "HOT" else (130 if state == "DIP" else 100),
+            })
+
+    span_yrs = max(0.5, (n - (first_valid_i or 0)) / 52.1775)
+    # Current live stats over the active window slice
+    slice_vals = closes[-window_bars:] if (window_bars is not None and n >= window_bars) else closes
+    cur_stats = welford_ols(slice_vals, use_log=True, bars_per_year=52.1775)
+
+    # Exact trigger price levels for the next state transition
+    end_space = cur_stats.get("end_space", 0.0)
+    sd = cur_stats.get("sd", 0.0)
+    px_at_z = lambda zv: round(math.exp(end_space + zv * sd), 2) if sd > 0 else round(float(closes[-1]), 2)
+
+    return {
+        "state": last_month_state,
+        "last_check_date": last_month_date,
+        "last_check_z": round(last_month_z, 3),
+        "live_z": round(cur_stats.get("z", 0.0), 3),
+        "r": round(cur_stats.get("r", 0.0), 4),
+        "n": int(cur_stats.get("n", 0)),
+        "trend_pct": round(cur_stats.get("trend_pct", 0.0), 2),
+        "mean_now": round(cur_stats.get("mean_now", 0.0), 2),
+        "mean_1y": round(cur_stats.get("mean_1y", 0.0), 2),
+        "to_mean_1y_pct": round(cur_stats.get("to_mean_1y_pct", 0.0), 2),
+        "sd_pct": round((math.exp(sd) - 1.0) * 100.0, 2) if sd > 0 else 0.0,
+        "levels": {
+            "p15": px_at_z(1.5),
+            "p05": px_at_z(0.5),
+            "z00": px_at_z(0.0),
+            "m05": px_at_z(-0.5),
+            "m10": px_at_z(-1.0),
+            "m15": px_at_z(-1.5),
+        },
+        "switches_count": len(switches),
+        "span_yrs": round(span_yrs, 1),
+        "switches_per_yr": round(len(switches) / span_yrs, 2),
+        "switches": list(reversed(switches[-24:])),
+    }
+
+
+def build_swda_signals() -> dict[str, Any]:
+    """Build SWDA single-global-ETF Step DeepDip & ReboundBoost live signals dataset."""
+    df_w = _fetch_bars("SWDA.L", "1wk", min_date="2009-11-06")
+    df_d = _fetch_bars("SWDA.L", "1d", min_date="2009-11-06")
+
+    def pack(df: pd.DataFrame) -> dict[str, Any]:
+        if df.empty:
+            return {"t": [], "c": [], "v": []}
+        return {
+            "t": [d.strftime("%Y-%m-%d") for d in df.index],
+            "c": [round(float(x), 4) for x in df["close"].values],
+            "v": [round(float(x), 0) for x in df["volume"].values],
+        }
+
+    w_packed = pack(df_w)
+    d_packed = pack(df_d)
+    last_px = float(df_d["close"].iloc[-1]) if not df_d.empty else float(df_w["close"].iloc[-1])
+    prev_d = float(df_d["close"].iloc[-2]) if len(df_d) >= 2 else last_px
+    prev_w = float(df_w["close"].iloc[-2]) if len(df_w) >= 2 else last_px
+    day_chg_pct = ((last_px / prev_d) - 1.0) * 100.0 if prev_d else 0.0
+    wk_chg_pct = ((last_px / prev_w) - 1.0) * 100.0 if prev_w else 0.0
+
+    # 10-week SMA for optional ReboundBoost falling-knife guard
+    sma10 = float(df_w["close"].tail(10).mean()) if len(df_w) >= 10 else last_px
+    above_sma10 = bool(last_px >= sma10)
+
+    closes_w = df_w["close"].values.astype(np.float64)
+    dates_w = w_packed["t"]
+
+    windows = {
+        "2500": _compute_swda_window_state(dates_w, closes_w, window_bars=520),
+        "1250": _compute_swda_window_state(dates_w, closes_w, window_bars=260),
+        "max": _compute_swda_window_state(dates_w, closes_w, window_bars=None),
+    }
+
+    # Fetch live reference quotes for companion sleeves (CSH2 cash + 2x UCITS boosters)
+    sleeves: dict[str, Any] = {}
+    for sid, sym, cur, desc in [
+        ("CSH2", "CSH2.L", "GBX", "Amundi Smart Overnight Return GBP (Cash)"),
+        ("LWLD", "LWLD.PA", "EUR", "Amundi MSCI World 2x Leveraged UCITS"),
+        ("XS2D", "XS2D.L", "USD", "Xtrackers S&P 500 2x Daily Swap UCITS"),
+    ]:
+        try:
+            sdf = _fetch_bars(sym, "1d", min_date="2025-01-01")
+            if not sdf.empty:
+                sleeves[sid] = {
+                    "id": sid,
+                    "yf": sym,
+                    "currency": cur,
+                    "name": desc,
+                    "last": round(float(sdf["close"].iloc[-1]), 2),
+                    "asof": sdf.index[-1].strftime("%Y-%m-%d"),
+                }
+        except Exception:
+            pass
+
+    return {
+        "asset": {
+            "id": "SWDA",
+            "yf": "SWDA.L",
+            "name": "iShares Core MSCI World UCITS ETF (Acc)",
+            "region": "Global Developed (VWRL/VWRP/VALL proxy)",
+            "isin": "IE00B4L5Y983",
+            "ocf": 0.20,
+            "currency": "GBX",
+            "color": "#38BDF8",
+            "last": round(last_px, 2),
+            "asof": df_d.index[-1].strftime("%Y-%m-%d") if not df_d.empty else (dates_w[-1] if dates_w else ""),
+            "day_chg_pct": round(day_chg_pct, 2),
+            "wk_chg_pct": round(wk_chg_pct, 2),
+            "series": {"1W": w_packed, "1D": d_packed},
+        },
+        "sma10": {
+            "value": round(sma10, 2),
+            "above": above_sma10,
+            "dist_pct": round(((last_px / sma10) - 1.0) * 100.0, 2) if sma10 > 0 else 0.0,
+        },
+        "sleeves": sleeves,
+        "windows": windows,
+    }
+
+
 def build_dataset() -> dict[str, Any]:
     assets_out: dict[str, Any] = {}
     weekly_summary: dict[str, dict[str, Any]] = {}
@@ -356,6 +582,7 @@ def build_dataset() -> dict[str, Any]:
         "countdown": next_month_countdown(),
         "recommendation": compute_recommendation(weekly_summary, gate_z=1.5),
         "assets": assets_out,
+        "swda_signals": build_swda_signals(),
     }
 
     (PUBLIC_DATA / "market_data.json").write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
