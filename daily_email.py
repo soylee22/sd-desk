@@ -116,7 +116,7 @@ def build_report(data: dict[str, Any], t212: dict[str, Any] | None) -> tuple[str
         f"Current Action: {rec['action']}",
         rec["headline"],
         "",
-        "Full-History Standings (Max Log 1W, IUSU/IHCU 2010+ & IGL5 2009+ Spliced):",
+        "Full-History Standings (Max Log 1W, IGL5 2009+ Spliced):",
     ]
     for aid in sorted(data["order"], key=lambda k: stats_by_id[k]["z"]):
         a = data["assets"][aid]

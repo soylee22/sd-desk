@@ -20,17 +20,17 @@ PUBLIC_DATA.mkdir(parents=True, exist_ok=True)
 
 ASSETS = [
     {
-        "id": "CNX1",
-        "yf": "CNX1.L",
-        "min_date": "2010-01-25",
-        "name": "iShares NASDAQ 100 UCITS ETF (Acc)",
-        "region": "US Tech / Growth",
-        "isin": "IE00B53SZB19",
-        "ocf": 0.30,
+        "id": "CSP1",
+        "yf": "CSP1.L",
+        "min_date": "2010-09-13",
+        "name": "iShares Core S&P 500 UCITS ETF (Acc)",
+        "region": "US Large Cap",
+        "isin": "IE00B5BMR087",
+        "ocf": 0.07,
         "currency": "GBX",
         "role": "equity",
         "color": "#38BDF8",
-        "t212_tickers": ["CNX1l_EQ", "CNX1_L_EQ", "EQQQl_EQ", "EQGBl_EQ", "NASLl_EQ"],
+        "t212_tickers": ["CSP1l_EQ", "CSP1_L_EQ", "VUAGl_EQ", "VUSAl_EQ"],
     },
     {
         "id": "CUKX",
@@ -44,38 +44,6 @@ ASSETS = [
         "role": "equity",
         "color": "#34D399",
         "t212_tickers": ["CUKXl_EQ", "CUKX_L_EQ", "VUKGl_EQ", "ISFl_EQ"],
-    },
-    {
-        "id": "IUSU",
-        "yf": "IUSU.L",
-        "min_date": "2017-03-20",
-        "splice_proxy_yf": "XLU",
-        "splice_fx_yf": "GBP=X",
-        "splice_min_date": "2010-09-13",
-        "name": "iShares S&P 500 Utilities Sector UCITS ETF (Acc)",
-        "region": "US Utilities",
-        "isin": "IE00B4KBBD01",
-        "ocf": 0.15,
-        "currency": "GBX",
-        "role": "equity",
-        "color": "#F59E0B",
-        "t212_tickers": ["IUSUl_EQ", "IUSU_L_EQ", "XWUSl_EQ"],
-    },
-    {
-        "id": "IHCU",
-        "yf": "IHCU.L",
-        "min_date": "2015-11-16",
-        "splice_proxy_yf": "XLV",
-        "splice_fx_yf": "GBP=X",
-        "splice_min_date": "2010-09-13",
-        "name": "iShares S&P 500 Health Care Sector UCITS ETF (Acc)",
-        "region": "US Health Care",
-        "isin": "IE00B43HR379",
-        "ocf": 0.15,
-        "currency": "GBX",
-        "role": "equity",
-        "color": "#2DD4BF",
-        "t212_tickers": ["IHCUl_EQ", "IHCU_L_EQ", "XWHSl_EQ"],
     },
     {
         "id": "SJPA",
@@ -295,7 +263,7 @@ def compute_recommendation(summary_by_id: dict[str, dict[str, Any]], gate_z: flo
     else:
         action = "PARK IN IGL5"
         tone = "park"
-        headline = f"All five equity sleeves sit at or above +{gate_z:.1f} SD (lowest is {best_id} at {best_z:+.2f} SD). Put 100% of this month's contribution into IGL5 until one equity cools to 0.0 SD."
+        headline = f"All three equity sleeves sit at or above +{gate_z:.1f} SD (lowest is {best_id} at {best_z:+.2f} SD). Put 100% of this month's contribution into IGL5 until one equity cools to 0.0 SD."
 
     return {
         "action": action,
