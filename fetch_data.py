@@ -284,21 +284,19 @@ def _compute_swda_window_state(
     dates: list[str],
     closes: np.ndarray,
     window_bars: int | None,
-    top_enter: float = 1.5,
-    top_exit: float = 0.5,
-    dip_enter: float = -1.0,
-    dip_exit: float = 0.0,
+    caution_enter: float = 1.5,
+    caution_exit: float = 0.5,
+    value_enter: float = 0.0,
 ) -> dict[str, Any]:
-    """Strictly causal monthly dual-hysteresis state machine for SWDA Step DeepDip (80/100/130%)."""
+    """Strictly causal monthly unlevered valuation state machine for SWDA (zero leverage, anti-whipsaw)."""
     n = len(closes)
     if n < 60:
-        return {"state": "NORMAL", "switches": [], "switches_per_yr": 0.0}
+        return {"state": "NEUTRAL", "switches": [], "switches_per_yr": 0.0}
 
     y = np.log(closes.astype(np.float64))
     z_series = np.full(n, np.nan, dtype=np.float64)
 
     if window_bars is None:
-        # Causal expanding Welford OLS (min 156w = 3y warmup)
         mx = my = cxx = cyy = cxy = 0.0
         for i in range(n):
             yi = float(y[i])
@@ -339,11 +337,12 @@ def _compute_swda_window_state(
                 z_series[i] = (float(yw[-1]) - end_fit) / sd if sd > 0 else 0.0
 
     # Walk first weekly bar of each calendar month strictly causally
-    state = "NORMAL"
+    # States: BELOW (<= 0.0 SD, high expected return + sweep gilts), NEUTRAL (0 to +1.5 SD), CAUTION (>= +1.5 SD until <= +0.5 SD)
+    state = "NEUTRAL"
     switches: list[dict[str, Any]] = []
     last_ym = ""
     first_valid_i = None
-    last_month_state = "NORMAL"
+    last_month_state = "NEUTRAL"
     last_month_date = ""
     last_month_z = 0.0
 
@@ -358,21 +357,18 @@ def _compute_swda_window_state(
         last_ym = ym
         zt = float(z_series[i])
         old = state
-        if state == "NORMAL":
-            if zt >= top_enter:
-                state = "HOT"
-            elif zt <= dip_enter:
-                state = "DIP"
-        elif state == "HOT":
-            if zt <= dip_enter:
-                state = "DIP"
-            elif zt <= top_exit:
-                state = "NORMAL"
-        elif state == "DIP":
-            if zt >= top_enter:
-                state = "HOT"
-            elif zt >= dip_exit:
-                state = "NORMAL"
+        if state == "CAUTION":
+            if zt <= value_enter:
+                state = "BELOW"
+            elif zt <= caution_exit:
+                state = "NEUTRAL"
+        else:
+            if zt >= caution_enter:
+                state = "CAUTION"
+            elif zt <= value_enter:
+                state = "BELOW"
+            else:
+                state = "NEUTRAL"
 
         last_month_state = state
         last_month_date = dates[i]
@@ -384,15 +380,13 @@ def _compute_swda_window_state(
                 "to": state,
                 "z": round(zt, 2),
                 "px": round(float(closes[i]), 2),
-                "target_eq": 80 if state == "HOT" else (130 if state == "DIP" else 100),
+                "action": "Buy + Sweep" if state == "BELOW" else ("Optional Gilts" if state == "CAUTION" else "Buy New Cash"),
             })
 
     span_yrs = max(0.5, (n - (first_valid_i or 0)) / 52.1775)
-    # Current live stats over the active window slice
     slice_vals = closes[-window_bars:] if (window_bars is not None and n >= window_bars) else closes
     cur_stats = welford_ols(slice_vals, use_log=True, bars_per_year=52.1775)
 
-    # Exact trigger price levels for the next state transition
     end_space = cur_stats.get("end_space", 0.0)
     sd = cur_stats.get("sd", 0.0)
     px_at_z = lambda zv: round(math.exp(end_space + zv * sd), 2) if sd > 0 else round(float(closes[-1]), 2)
@@ -415,7 +409,6 @@ def _compute_swda_window_state(
             "z00": px_at_z(0.0),
             "m05": px_at_z(-0.5),
             "m10": px_at_z(-1.0),
-            "m15": px_at_z(-1.5),
         },
         "switches_count": len(switches),
         "span_yrs": round(span_yrs, 1),
@@ -425,7 +418,7 @@ def _compute_swda_window_state(
 
 
 def build_swda_signals() -> dict[str, Any]:
-    """Build SWDA single-global-ETF Step DeepDip & ReboundBoost live signals dataset."""
+    """Build clean unlevered SWDA single-global-ETF valuation and caution monitor dataset."""
     df_w = _fetch_bars("SWDA.L", "1wk", min_date="2009-11-06")
     df_d = _fetch_bars("SWDA.L", "1d", min_date="2009-11-06")
 
@@ -446,9 +439,9 @@ def build_swda_signals() -> dict[str, Any]:
     day_chg_pct = ((last_px / prev_d) - 1.0) * 100.0 if prev_d else 0.0
     wk_chg_pct = ((last_px / prev_w) - 1.0) * 100.0 if prev_w else 0.0
 
-    # 10-week SMA for optional ReboundBoost falling-knife guard
-    sma10 = float(df_w["close"].tail(10).mean()) if len(df_w) >= 10 else last_px
-    above_sma10 = bool(last_px >= sma10)
+    # 40-week (~200-day) SMA context indicator
+    sma40 = float(df_w["close"].tail(40).mean()) if len(df_w) >= 40 else last_px
+    above_sma40 = bool(last_px >= sma40)
 
     closes_w = df_w["close"].values.astype(np.float64)
     dates_w = w_packed["t"]
@@ -459,12 +452,10 @@ def build_swda_signals() -> dict[str, Any]:
         "max": _compute_swda_window_state(dates_w, closes_w, window_bars=None),
     }
 
-    # Fetch live reference quotes for companion sleeves (CSH2 cash + 2x UCITS boosters)
     sleeves: dict[str, Any] = {}
     for sid, sym, cur, desc in [
         ("CSH2", "CSH2.L", "GBX", "Amundi Smart Overnight Return GBP (Cash)"),
-        ("LWLD", "LWLD.PA", "EUR", "Amundi MSCI World 2x Leveraged UCITS"),
-        ("XS2D", "XS2D.L", "USD", "Xtrackers S&P 500 2x Daily Swap UCITS"),
+        ("IGL5", "IGL5.L", "GBP", "iShares UK Gilts 0-5yr UCITS ETF (Acc)"),
     ]:
         try:
             sdf = _fetch_bars(sym, "1d", min_date="2025-01-01")
@@ -485,7 +476,7 @@ def build_swda_signals() -> dict[str, Any]:
             "id": "SWDA",
             "yf": "SWDA.L",
             "name": "iShares Core MSCI World UCITS ETF (Acc)",
-            "region": "Global Developed (VWRL/VWRP/VALL proxy)",
+            "region": "Global Developed (VWRL / VWRP / VALL proxy)",
             "isin": "IE00B4L5Y983",
             "ocf": 0.20,
             "currency": "GBX",
@@ -496,10 +487,10 @@ def build_swda_signals() -> dict[str, Any]:
             "wk_chg_pct": round(wk_chg_pct, 2),
             "series": {"1W": w_packed, "1D": d_packed},
         },
-        "sma10": {
-            "value": round(sma10, 2),
-            "above": above_sma10,
-            "dist_pct": round(((last_px / sma10) - 1.0) * 100.0, 2) if sma10 > 0 else 0.0,
+        "sma40": {
+            "value": round(sma40, 2),
+            "above": above_sma40,
+            "dist_pct": round(((last_px / sma40) - 1.0) * 100.0, 2) if sma40 > 0 else 0.0,
         },
         "sleeves": sleeves,
         "windows": windows,

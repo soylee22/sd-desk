@@ -1,4 +1,4 @@
-/* SD Desk SWDA Signals View: Single-Global-ETF Step DeepDip (80/100/130% Dual Hysteresis), ReboundBoost, and Unlevered Z-Tilt. */
+/* SD Desk SWDA Signals View: Unlevered Single-Global-ETF Valuation Zone, Optional Gilt Caution (>= +1.5 SD), and 50/50 Hot Lump-Sum Planner. */
 (function (root) {
   "use strict";
 
@@ -6,9 +6,9 @@
   const C = root.SDCharts;
 
   const ui = {
-    windowKey: "2500",      // "2500" (10Y Roll, recommended) | "1250" (5Y Roll) | "max" (Expanding)
-    mode: "deepdip",        // "deepdip" | "rebound" | "unlev"
-    hysteresis: "dual",     // "dual" (anti-whipsaw) | "strict" (preview live Z directly)
+    windowKey: "2500",   // "2500" (10Y Roll, recommended) | "1250" (5Y Roll) | "max" (Max)
+    calcMode: "dca",     // "dca" (Monthly Payday + Reserve) | "lumpsum" (Fresh Lump Sum 100% vs 50/50 12m)
+    hysteresis: "dual",  // "dual" (anti-whipsaw monthly state) | "live" (live Z preview)
     chart: null,
     bound: false,
   };
@@ -18,133 +18,73 @@
     const n = Math.round(Number(v || 0));
     return (n < 0 ? "-£" : "£") + Math.abs(n).toLocaleString("en-GB");
   };
-  const fmtSignedGbp0 = (v) => {
-    const n = Math.round(Number(v || 0));
-    return (n >= 0 ? "+£" : "-£") + Math.abs(n).toLocaleString("en-GB");
-  };
   const fmtZ = (z) => `${z >= 0 ? "+" : ""}${Number(z || 0).toFixed(2)} SD`;
   const fmtPx = (v) => (Number.isFinite(v) ? `${Math.round(v).toLocaleString("en-GB")}p` : "--");
   const fmtPct = (v) => `${v >= 0 ? "+" : ""}${Number(v || 0).toFixed(1)}%`;
 
   function zCls(z) {
-    if (z <= -1.0) return "z-low";
-    if (z <= 0.0) return "z-mid";
+    if (z <= 0.0) return "z-low";
+    if (z < 1.0) return "z-mid";
     if (z < 1.5) return "z-warm";
     return "z-hot";
   }
 
-  function targetSleevesFromEff(wEff) {
-    const w = Math.max(0, Math.min(2, wEff));
-    if (w <= 1.0) {
-      return { w1x: w, w2x: 0, wCash: 1.0 - w, eff: w };
-    }
-    return { w1x: 2.0 - w, w2x: w - 1.0, wCash: 0, eff: w };
-  }
-
   function resolveSignal(swdaData) {
     const win = swdaData.windows[ui.windowKey] || swdaData.windows["2500"];
-    const a = swdaData.asset;
-    const sma = swdaData.sma10 || { value: a.last, above: true, dist_pct: 0 };
+    const sma = swdaData.sma40 || { value: swdaData.asset.last, above: true, dist_pct: 0 };
     const zLive = Number(win.live_z || 0);
 
-    // Determine active state & target exposure based on strategy mode + hysteresis setting
-    let stateCode = win.state || "NORMAL";
-    if (ui.hysteresis === "strict") {
-      if (zLive >= 1.5) stateCode = "HOT";
-      else if (zLive <= -1.0) stateCode = "DIP";
-      else stateCode = "NORMAL";
+    let stateCode = win.state || "NEUTRAL";
+    if (ui.hysteresis === "live") {
+      if (zLive <= 0.0) stateCode = "BELOW";
+      else if (zLive >= 1.5) stateCode = "CAUTION";
+      else stateCode = "NEUTRAL";
     }
 
-    let effW = 1.0;
-    let badgeText = "HOLD 100% SWDA";
+    // Preview upcoming 1st-of-month transition under Dual Hysteresis
+    let pendingSwitch = "";
+    if (ui.hysteresis === "dual") {
+      let nextState = stateCode;
+      if (stateCode === "CAUTION") {
+        if (zLive <= 0.0) nextState = "BELOW";
+        else if (zLive <= 0.5) nextState = "NEUTRAL";
+      } else {
+        if (zLive >= 1.5) nextState = "CAUTION";
+        else if (zLive <= 0.0) nextState = "BELOW";
+        else nextState = "NEUTRAL";
+      }
+      if (nextState !== stateCode) {
+        const desc = nextState === "BELOW"
+          ? "BELOW LINE (Buy 100% + Sweep Reserve)"
+          : (nextState === "CAUTION" ? "CAUTION >= +1.5 SD (Optional Gilts / 50-50 Lump Sum)" : "NEUTRAL (Buy 100% New Cash)");
+        pendingSwitch = `Pending 1st-of-month shift: live Z (${fmtZ(zLive)}) moves ${stateCode} to ${desc} on next payday check.`;
+      }
+    }
+
+    let badgeText = "NEUTRAL: BUY 100% SWDA";
     let tone = "normal";
     let actionCopy = "";
-    let pendingSwitch = "";
-    let downTrigger = { label: "Boost to 130% (Dip)", z: -1.0, px: win.levels.m10 };
-    let upTrigger = { label: "Trim to 80/20 (Hot)", z: 1.5, px: win.levels.p15 };
+    let belowTrigger = { label: "At/Below Mean (Sweep Line)", z: 0.0, px: win.levels.z00 };
+    let cautionTrigger = { label: "Caution Gate (Optional Gilts)", z: 1.5, px: win.levels.p15 };
 
-    if (ui.mode === "deepdip") {
-      // Compute what the NEXT 1st-of-month check would transition to if today's live Z holds
-      if (ui.hysteresis === "dual") {
-        let nextState = stateCode;
-        if (stateCode === "NORMAL") {
-          if (zLive >= 1.5) nextState = "HOT";
-          else if (zLive <= -1.0) nextState = "DIP";
-        } else if (stateCode === "HOT") {
-          if (zLive <= -1.0) nextState = "DIP";
-          else if (zLive <= 0.5) nextState = "NORMAL";
-        } else if (stateCode === "DIP") {
-          if (zLive >= 1.5) nextState = "HOT";
-          else if (zLive >= 0.0) nextState = "NORMAL";
-        }
-        if (nextState !== stateCode) {
-          const nextDesc = nextState === "HOT" ? "HOT (80% SWDA / 20% CSH2)" : (nextState === "DIP" ? "DIP (70% SWDA / 30% 2x)" : "NORMAL (100% 1x SWDA)");
-          pendingSwitch = `Pending 1st-of-month switch: live Z (${fmtZ(zLive)}) crossed exit band -> queued to move ${stateCode} to ${nextDesc} on next payday check.`;
-        }
-      }
-
-      if (stateCode === "HOT") {
-        effW = 0.80;
-        badgeText = "HOT: 80% SWDA · 20% CSH2";
-        tone = "park";
-        actionCopy = `Overheated state active (entered >= +1.50 SD). Hold 80% 1x SWDA and 20% CSH2 cash until a monthly 1st-of-month close cools to <= +0.50 SD.`;
-        downTrigger = { label: "Cool back to 100% (Exit Hot)", z: 0.5, px: win.levels.p05 };
-        upTrigger = { label: "Already trimmed (Stay 80/20)", z: 1.5, px: win.levels.p15 };
-      } else if (stateCode === "DIP") {
-        effW = 1.30;
-        badgeText = "DEEP DIP: 70% SWDA · 30% 2X";
-        tone = "deploy";
-        actionCopy = `Deep-dip booster active (entered <= -1.00 SD). Hold 70% 1x SWDA + 30% 2x World (130% exposure) until a monthly 1st-of-month close recovers to >= 0.00 SD.`;
-        downTrigger = { label: "Booster already ON (130%)", z: -1.0, px: win.levels.m10 };
-        upTrigger = { label: "Reset to 100% (Exit Dip)", z: 0.0, px: win.levels.z00 };
-      } else {
-        effW = 1.00;
-        badgeText = "NORMAL: 100% 1X SWDA";
-        tone = "normal";
-        actionCopy = `Inside the neutral band (-1.00 to +1.50 SD). Hold 100% 1x SWDA / VWRP / VALL with 0% cash and 0% leverage. No rebalance trade needed.`;
-        downTrigger = { label: "Enter 130% Dip Boost", z: -1.0, px: win.levels.m10 };
-        upTrigger = { label: "Enter 80/20 Hot Trim", z: 1.5, px: win.levels.p15 };
-      }
-    } else if (ui.mode === "rebound") {
-      if (zLive >= 1.5 || (ui.hysteresis === "dual" && stateCode === "HOT")) {
-        effW = 0.75;
-        badgeText = "HOT: 75% SWDA · 25% CSH2";
-        tone = "park";
-        actionCopy = `Overheated >= +1.50 SD. Trim to 75% 1x SWDA + 25% CSH2 cash until Z cools back below +0.50 SD on a monthly check.`;
-        downTrigger = { label: "Cool back to 100%", z: 0.5, px: win.levels.p05 };
-        upTrigger = { label: "Already trimmed (75/25)", z: 1.5, px: win.levels.p15 };
-      } else if (zLive <= -0.5 && sma.above) {
-        effW = 1.35;
-        badgeText = "REBOUND BOOST: 65% SWDA · 35% 2X";
-        tone = "deploy";
-        actionCopy = `Below -0.50 SD AND price is above its 10-week SMA (${fmtPx(sma.value)}). Trend confirmed: deploy 35% into 2x World (135% exposure).`;
-        downTrigger = { label: "10W SMA Brake", z: -0.5, px: sma.value };
-        upTrigger = { label: "Reset to 100%", z: 0.0, px: win.levels.z00 };
-      } else if (zLive <= -0.5 && !sma.above) {
-        effW = 1.00;
-        badgeText = "FALLING KNIFE BRAKE: 100% 1X";
-        tone = "normal";
-        actionCopy = `Z is below -0.50 SD (${fmtZ(zLive)}), but SWDA sits below its 10W SMA (${fmtPx(sma.value)}). Hold 100% unlevered until price reclaims ${fmtPx(sma.value)}.`;
-        downTrigger = { label: "Armed (Waiting > 10W SMA)", z: -0.5, px: sma.value };
-        upTrigger = { label: "Hot Trim Trigger", z: 1.5, px: win.levels.p15 };
-      } else {
-        effW = 1.00;
-        badgeText = "NORMAL: 100% 1X SWDA";
-        tone = "normal";
-        actionCopy = `Neutral band. Hold 100% 1x SWDA. Boosts to 135% only when Z <= -0.50 SD AND price > 10W SMA (${fmtPx(sma.value)}).`;
-        downTrigger = { label: "Arm Rebound Boost (<= -0.5)", z: -0.5, px: win.levels.m05 };
-        upTrigger = { label: "Enter 75/25 Hot Trim", z: 1.5, px: win.levels.p15 };
-      }
+    if (stateCode === "BELOW") {
+      badgeText = "BELOW LINE: BUY 100% + SWEEP";
+      tone = "deploy";
+      actionCopy = "SWDA sits at or below its trend line (higher 1 to 5Y expected return and stronger worst-case floor). Deploy 100% of monthly cash, sweep any parked IGL5/CSH2 reserve, and invest fresh lump sums 100% immediately.";
+      belowTrigger = { label: "Deep Value (-1.0 SD)", z: -1.0, px: win.levels.m10 };
+      cautionTrigger = { label: "Caution Gate (+1.5 SD)", z: 1.5, px: win.levels.p15 };
+    } else if (stateCode === "CAUTION") {
+      badgeText = "STRETCHED: OPTIONAL GILTS / 50-50 LS";
+      tone = "park";
+      actionCopy = "Caution state active (entered >= +1.50 SD). Equities still carry positive expected return, so 100% buying remains valid for max long-run wealth. For caution: park new monthly cash in IGL5/CSH2 until Z <= +0.50 SD, and stage fresh lump sums 50% now + 50% over 12m (sweeping early if Z <= 0.0 SD).";
+      belowTrigger = { label: "Exit Caution (Cool <= +0.5 SD)", z: 0.5, px: win.levels.p05 };
+      cautionTrigger = { label: "Sweep Reserve Line (0.0 SD)", z: 0.0, px: win.levels.z00 };
     } else {
-      // Unlevered Balanced Z-Tilt: 85% at Z=0, 100% at Z <= -1.0, down to 55% at Z >= +2.0
-      effW = Math.min(1.0, Math.max(0.55, 0.85 - 0.15 * zLive));
-      const eqPct = Math.round(effW * 100);
-      const caPct = 100 - eqPct;
-      badgeText = `UNLEV Z-TILT: ${eqPct}% SWDA · ${caPct}% CSH2`;
-      tone = effW >= 0.95 ? "deploy" : (effW <= 0.70 ? "park" : "normal");
-      actionCopy = `Zero leverage. Target weight = clip(85% - 15% * Z, 55%, 100%). Only rebalance on the 1st of the month if actual weight drifts >= 5% from target.`;
-      downTrigger = { label: "Full 100% Equity", z: -1.0, px: win.levels.m10 };
-      upTrigger = { label: "Floor 55% Equity", z: 2.0, px: win.levels.p15 };
+      badgeText = "NEUTRAL: BUY 100% NEW CASH";
+      tone = "normal";
+      actionCopy = "Inside the normal band (0.00 to +1.50 SD). Invest 100% of new monthly cash into SWDA / VWRP / VALL and deploy fresh lump sums 100% immediately. Leave any prior gilt reserve parked until Z <= 0.00 SD.";
+      belowTrigger = { label: "Below-Line Sweep (0.0 SD)", z: 0.0, px: win.levels.z00 };
+      cautionTrigger = { label: "Caution Gate (+1.5 SD)", z: 1.5, px: win.levels.p15 };
     }
 
     return {
@@ -152,13 +92,12 @@
       sma,
       zLive,
       stateCode,
-      sleeves: targetSleevesFromEff(effW),
       badgeText,
       tone,
       actionCopy,
       pendingSwitch,
-      downTrigger,
-      upTrigger,
+      belowTrigger,
+      cautionTrigger,
     };
   }
 
@@ -200,84 +139,93 @@
     }, preserveZoom);
   }
 
-  function renderCalculator(swdaData, sig) {
-    const pot = Math.max(0, Number($("swdaPot")?.value) || 0);
-    const addCash = Math.max(0, Number($("swdaAddCash")?.value) || 0);
-    const useCur = Boolean($("swdaUseCur")?.checked);
-    const curBox = $("swdaCurBox");
-    if (curBox) curBox.style.display = useCur ? "block" : "none";
+  function renderCalculator(sig) {
+    const isLs = ui.calcMode === "lumpsum";
+    const dcaBox = $("swdaDcaInputs");
+    const lsBox = $("swdaLsInputs");
+    if (dcaBox) dcaBox.style.display = isLs ? "none" : "block";
+    if (lsBox) lsBox.style.display = isLs ? "block" : "none";
 
-    const cur1x = useCur ? Math.max(0, Number($("swdaCur1x")?.value) || 0) : 0;
-    const cur2x = useCur ? Math.max(0, Number($("swdaCur2x")?.value) || 0) : 0;
-    const curCash = useCur ? Math.max(0, Number($("swdaCurCash")?.value) || 0) : 0;
+    let eqNow = 0;
+    let parkNow = 0;
+    let total = 0;
+    let summaryTxt = "";
+    let eqNote = "";
+    let parkNote = "";
 
-    const totalVal = useCur ? (cur1x + cur2x + curCash + addCash) : (pot + addCash);
-    if ($("swdaPotFmt")) $("swdaPotFmt").textContent = fmtGbp0(totalVal);
+    if (!isLs) {
+      const monthly = Math.max(0, Number($("swdaMonthly")?.value) || 0);
+      const reserve = Math.max(0, Number($("swdaReserve")?.value) || 0);
+      const useCaution = Boolean($("swdaUseCaution")?.checked);
+      if ($("swdaMonthlyFmt")) $("swdaMonthlyFmt").textContent = fmtGbp0(monthly);
+      total = monthly + reserve;
 
-    const { w1x, w2x, wCash, eff } = sig.sleeves;
-    const tgt1x = totalVal * w1x;
-    const tgt2x = totalVal * w2x;
-    const tgtCash = totalVal * wCash;
+      if (sig.stateCode === "BELOW") {
+        eqNow = monthly + reserve;
+        parkNow = 0;
+        summaryTxt = `Below-line deploy: 100% into SWDA/VWRP (${fmtGbp0(eqNow)}) · Sweep entire gilt reserve`;
+        eqNote = reserve > 0 ? `New cash ${fmtGbp0(monthly)} + swept reserve ${fmtGbp0(reserve)}` : "100% of new monthly cash";
+        parkNote = "Sweep £0 remaining";
+      } else if (sig.stateCode === "CAUTION" && useCaution) {
+        eqNow = 0;
+        parkNow = monthly + reserve;
+        summaryTxt = `Caution gate active: park ${fmtGbp0(monthly)} new cash in IGL5/CSH2 · Hold reserve until Z <= 0.0 SD`;
+        eqNote = "Paused while Z >= +1.5 SD (caution mode)";
+        parkNote = `Add ${fmtGbp0(monthly)} new cash (total parked ${fmtGbp0(parkNow)})`;
+      } else {
+        eqNow = monthly;
+        parkNow = reserve;
+        summaryTxt = `Normal monthly buy: ${fmtGbp0(monthly)} into SWDA/VWRP · Keep ${fmtGbp0(reserve)} reserve parked until Z <= 0.0 SD`;
+        eqNote = "100% of new monthly cash";
+        parkNote = reserve > 0 ? "Keep existing reserve parked until Z <= 0.0 SD" : "No reserve parked";
+      }
+    } else {
+      const lump = Math.max(0, Number($("swdaLump")?.value) || 0);
+      if ($("swdaLumpFmt")) $("swdaLumpFmt").textContent = fmtGbp0(lump);
+      total = lump;
 
-    const rows = [
-      {
-        id: "SWDA / VWRP / VALL",
-        role: "1x Global Core",
-        color: "#38BDF8",
-        tgtPct: w1x * 100,
-        tgtGbp: tgt1x,
-        curGbp: cur1x,
-        delta: useCur ? (tgt1x - cur1x) : tgt1x,
-      },
-      {
-        id: "LWLD / XS2D / CL2",
-        role: "2x Dip Booster",
-        color: "#C084FC",
-        tgtPct: w2x * 100,
-        tgtGbp: tgt2x,
-        curGbp: cur2x,
-        delta: useCur ? (tgt2x - cur2x) : tgt2x,
-      },
-      {
-        id: "CSH2",
-        role: "GBP Overnight Cash",
-        color: "#089981",
-        tgtPct: wCash * 100,
-        tgtGbp: tgtCash,
-        curGbp: curCash,
-        delta: useCur ? (tgtCash - curCash) : tgtCash,
-      },
-    ];
-
-    const bar = $("swdaAllocBar");
-    if (bar) {
-      bar.innerHTML = rows
-        .filter((r) => r.tgtPct > 0.1)
-        .map((r) => `<div class="alloc-seg" style="width:${r.tgtPct.toFixed(1)}%;background:${r.color};" title="${r.id}: ${r.tgtPct.toFixed(1)}%"></div>`)
-        .join("");
+      if (sig.stateCode === "CAUTION") {
+        eqNow = lump * 0.5;
+        parkNow = lump * 0.5;
+        const drip = Math.round(parkNow / 12);
+        summaryTxt = `Stretched entry (>= +1.5 SD): 50% immediate (${fmtGbp0(eqNow)}) + 50% dripped ~${fmtGbp0(drip)}/mo over 12m`;
+        eqNote = "50% immediate core (avoids stranded-cash trap)";
+        parkNote = `Drip ${fmtGbp0(drip)}/mo over 12m, or sweep 100% early if Z <= 0.0 SD`;
+      } else {
+        eqNow = lump;
+        parkNow = 0;
+        summaryTxt = sig.stateCode === "BELOW"
+          ? `Below-line lump sum: 100% immediate (${fmtGbp0(eqNow)}) · Discount + time in market`
+          : `Neutral lump sum: 100% immediate (${fmtGbp0(eqNow)}) · No staging needed below +1.5 SD`;
+        eqNote = "Deploy 100% immediately";
+        parkNote = "No cash holdback needed";
+      }
     }
 
-    const effTag = $("swdaEffTag");
-    if (effTag) {
-      effTag.textContent = `Effective Equity Exposure: ${Math.round(eff * 100)}%  ·  Total Portfolio: ${fmtGbp0(totalVal)}`;
+    const eqPct = total > 0 ? (eqNow / total) * 100 : 100;
+    const pkPct = total > 0 ? (parkNow / total) * 100 : 0;
+
+    if ($("swdaEffTag")) $("swdaEffTag").textContent = summaryTxt;
+    if ($("swdaAllocBar")) {
+      const segs = [];
+      if (eqPct > 0.1) segs.push(`<div class="alloc-seg" style="width:${eqPct.toFixed(1)}%;background:#38BDF8;" title="SWDA/VWRP/VALL: ${eqPct.toFixed(1)}%"></div>`);
+      if (pkPct > 0.1) segs.push(`<div class="alloc-seg" style="width:${pkPct.toFixed(1)}%;background:#089981;" title="IGL5/CSH2: ${pkPct.toFixed(1)}%"></div>`);
+      $("swdaAllocBar").innerHTML = segs.join("");
     }
 
-    const tbody = $("swdaCalcBody");
-    if (tbody) {
-      tbody.innerHTML = rows.map((r) => {
-        const dCls = Math.abs(r.delta) < 10 ? "" : (r.delta > 0 ? "up" : "dn");
-        const actTxt = useCur
-          ? (Math.abs(r.delta) < 10 ? "Hold" : (r.delta > 0 ? `Buy ${fmtGbp0(r.delta)}` : `Sell ${fmtGbp0(Math.abs(r.delta))}`))
-          : fmtGbp0(r.tgtGbp);
-        return `
-          <tr>
-            <td><span class="sym-dot" style="margin-right:7px;background:${r.color}"></span><strong style="color:#fff">${r.id}</strong><div style="font-size:11px;color:var(--tv-dim);margin-left:15px;">${r.role}</div></td>
-            <td class="num-r" style="font-weight:700;color:#fff;">${r.tgtPct.toFixed(1)}%</td>
-            <td class="num-r">${fmtGbp0(r.tgtGbp)}</td>
-            <td class="num-r ${dCls}" style="font-weight:700;">${actTxt}</td>
-          </tr>
-        `;
-      }).join("");
+    if ($("swdaCalcBody")) {
+      $("swdaCalcBody").innerHTML = `
+        <tr>
+          <td><span class="sym-dot" style="margin-right:7px;background:#38BDF8"></span><strong style="color:#fff">SWDA / VWRP / VALL</strong><div style="font-size:11px;color:var(--tv-dim);margin-left:15px;">${eqNote}</div></td>
+          <td class="num-r" style="font-weight:700;color:#fff;">${eqPct.toFixed(1)}%</td>
+          <td class="num-r up" style="font-weight:700;">${fmtGbp0(eqNow)}</td>
+        </tr>
+        <tr>
+          <td><span class="sym-dot" style="margin-right:7px;background:#089981"></span><strong style="color:#fff">IGL5 / CSH2</strong><div style="font-size:11px;color:var(--tv-dim);margin-left:15px;">${parkNote}</div></td>
+          <td class="num-r" style="font-weight:700;color:#fff;">${pkPct.toFixed(1)}%</td>
+          <td class="num-r" style="font-weight:700;color:var(--tv-text);">${fmtGbp0(parkNow)}</td>
+        </tr>
+      `;
     }
   }
 
@@ -291,36 +239,35 @@
     const win = sig.win;
     const cd = M.computeCountdown(new Date());
 
-    // KPI Cards
-    const downDist = a.last > 0 ? ((sig.downTrigger.px / a.last) - 1) * 100 : 0;
-    const upDist = a.last > 0 ? ((sig.upTrigger.px / a.last) - 1) * 100 : 0;
+    const belowDist = a.last > 0 ? ((sig.belowTrigger.px / a.last) - 1) * 100 : 0;
+    const cautDist = a.last > 0 ? ((sig.cautionTrigger.px / a.last) - 1) * 100 : 0;
     const smaBadge = sig.sma.above
-      ? `<span class="up">Above 10W SMA (${fmtPx(sig.sma.value)}, ${fmtPct(sig.sma.dist_pct)})</span>`
-      : `<span class="dn">Below 10W SMA (${fmtPx(sig.sma.value)}, ${fmtPct(sig.sma.dist_pct)})</span>`;
+      ? `<span class="up">Above 40W SMA (${fmtPx(sig.sma.value)}, ${fmtPct(sig.sma.dist_pct)})</span>`
+      : `<span class="dn">Below 40W SMA (${fmtPx(sig.sma.value)}, ${fmtPct(sig.sma.dist_pct)})</span>`;
 
     const kpiBox = $("swdaKpis");
     if (kpiBox) {
       kpiBox.innerHTML = `
         <div class="kpi-card">
-          <div class="k">Live Monthly Signal (${ui.windowKey === "2500" ? "10Y Roll" : (ui.windowKey === "1250" ? "5Y Roll" : "Max")})</div>
+          <div class="k">Valuation Zone (${ui.windowKey === "2500" ? "10Y Roll" : (ui.windowKey === "1250" ? "5Y Roll" : "Max")})</div>
           <div style="margin:5px 0 4px;"><span class="tv-signal ${sig.tone}">${sig.badgeText}</span></div>
-          <div class="s">Live Z: <strong class="${zCls(sig.zLive)}">${fmtZ(sig.zLive)}</strong> · Last check ${win.last_check_date || "--"} (${fmtZ(win.last_check_z)})</div>
+          <div class="s">Live Z: <strong class="${zCls(sig.zLive)}">${fmtZ(sig.zLive)}</strong> · Last 1st check ${win.last_check_date || "--"} (${fmtZ(win.last_check_z)})</div>
           <div class="s">${smaBadge}</div>
         </div>
         <div class="kpi-card">
-          <div class="k">${sig.downTrigger.label}</div>
-          <div class="v">${fmtPx(sig.downTrigger.px)}</div>
-          <div class="s">Target ${fmtZ(sig.downTrigger.z)} · ${fmtPct(downDist)} from current ${fmtPx(a.last)}</div>
+          <div class="k">${sig.belowTrigger.label}</div>
+          <div class="v">${fmtPx(sig.belowTrigger.px)}</div>
+          <div class="s">Level ${fmtZ(sig.belowTrigger.z)} · ${fmtPct(belowDist)} from current ${fmtPx(a.last)}</div>
         </div>
         <div class="kpi-card">
-          <div class="k">${sig.upTrigger.label}</div>
-          <div class="v">${fmtPx(sig.upTrigger.px)}</div>
-          <div class="s">Target ${fmtZ(sig.upTrigger.z)} · ${fmtPct(upDist)} from current ${fmtPx(a.last)}</div>
+          <div class="k">${sig.cautionTrigger.label}</div>
+          <div class="v">${fmtPx(sig.cautionTrigger.px)}</div>
+          <div class="s">Level ${fmtZ(sig.cautionTrigger.z)} · ${fmtPct(cautDist)} from current ${fmtPx(a.last)}</div>
         </div>
         <div class="kpi-card">
-          <div class="k">Anti-Whipsaw Cadence</div>
-          <div class="v">${win.switches_per_yr.toFixed(2)} <span style="font-size:12px;color:var(--tv-muted);font-weight:500;">switches / yr</span></div>
-          <div class="s">${win.switches_count} trades over ${win.span_yrs}y · Next check ${cd.first_trading_label} (${cd.days_to_first_trading}d)</div>
+          <div class="k">Monthly Check Cadence</div>
+          <div class="v">${cd.days_to_first_trading}d <span style="font-size:12px;color:var(--tv-muted);font-weight:500;">to ${cd.first_trading_label}</span></div>
+          <div class="s">${win.switches_count} zone shifts over ${win.span_yrs}y (${win.switches_per_yr.toFixed(2)}/yr) · Dual Hysteresis</div>
         </div>
       `;
     }
@@ -330,25 +277,24 @@
       const pendHtml = sig.pendingSwitch
         ? `<div style="margin-top:4px;color:#34d399;font-weight:600;">${sig.pendingSwitch}</div>`
         : "";
-      actionBanner.innerHTML = `<strong style="color:#fff;">Action:</strong> ${sig.actionCopy}${pendHtml}`;
+      actionBanner.innerHTML = `<strong style="color:#fff;">Guidance:</strong> ${sig.actionCopy}${pendHtml}`;
     }
 
-    // Historical Monthly Switch Log
     const swBody = $("swdaSwitchBody");
     if (swBody) {
       const list = win.switches || [];
       if (!list.length) {
-        swBody.innerHTML = `<tr><td colspan="5" style="color:var(--tv-muted);">No historical state switches recorded in this window.</td></tr>`;
+        swBody.innerHTML = `<tr><td colspan="5" style="color:var(--tv-muted);">No monthly zone switches recorded in this window.</td></tr>`;
       } else {
         swBody.innerHTML = list.map((s) => {
-          const toCls = s.to === "DIP" ? "z-low" : (s.to === "HOT" ? "z-hot" : "z-mid");
+          const toCls = s.to === "BELOW" ? "z-low" : (s.to === "CAUTION" ? "z-hot" : "z-mid");
           return `
             <tr>
               <td style="color:#fff;">${s.date}</td>
               <td class="num-r z-tag ${zCls(s.z)}">${fmtZ(s.z)}</td>
               <td class="num-r">${fmtPx(s.px)}</td>
               <td><span style="color:var(--tv-dim);">${s.from}</span> → <strong class="${toCls}">${s.to}</strong></td>
-              <td class="num-r" style="font-weight:600;color:#fff;">${s.target_eq}%</td>
+              <td class="num-r" style="color:var(--tv-text);">${s.action || "--"}</td>
             </tr>
           `;
         }).join("");
@@ -356,7 +302,7 @@
     }
 
     renderChart(swdaData, preserveZoom);
-    renderCalculator(swdaData, sig);
+    renderCalculator(sig);
   }
 
   function bind() {
@@ -372,11 +318,11 @@
       });
     });
 
-    document.querySelectorAll("[data-swda-mode]").forEach((b) => {
+    document.querySelectorAll("[data-swda-calc]").forEach((b) => {
       b.addEventListener("click", () => {
-        document.querySelectorAll("[data-swda-mode]").forEach((x) => x.classList.remove("active"));
+        document.querySelectorAll("[data-swda-calc]").forEach((x) => x.classList.remove("active"));
         b.classList.add("active");
-        ui.mode = b.dataset.swdaMode;
+        ui.calcMode = b.dataset.swdaCalc;
         render(true);
       });
     });
@@ -390,14 +336,14 @@
       });
     });
 
-    document.querySelectorAll("[data-swda-pot]").forEach((b) => {
+    document.querySelectorAll("[data-swda-lump]").forEach((b) => {
       b.addEventListener("click", () => {
-        if ($("swdaPot")) $("swdaPot").value = b.dataset.swdaPot;
+        if ($("swdaLump")) $("swdaLump").value = b.dataset.swdaLump;
         render(true);
       });
     });
 
-    ["swdaPot", "swdaAddCash", "swdaUseCur", "swdaCur1x", "swdaCur2x", "swdaCurCash"].forEach((id) => {
+    ["swdaMonthly", "swdaReserve", "swdaUseCaution", "swdaLump"].forEach((id) => {
       const el = $(id);
       if (el) {
         el.addEventListener("input", () => render(true));

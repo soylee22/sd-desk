@@ -80,7 +80,7 @@
       <button class="tv-rail-btn" data-view="portfolio" title="Live Trading 212 Portfolio">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="6" width="18" height="14" rx="1.5"/><path d="M16 13h5"/><path d="M7 6V4.5A1.5 1.5 0 0 1 8.5 3h7A1.5 1.5 0 0 1 17 4.5V6"/></svg>
       </button>
-      <button class="tv-rail-btn" data-view="swda" title="SWDA Single-ETF Signals (Step DeepDip 80/100/130%)">
+      <button class="tv-rail-btn" data-view="swda" title="SWDA Valuation & Caution Monitor (Unlevered)">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/><path d="M3 21h18" stroke-dasharray="2 2"/></svg>
       </button>
       <span class="tv-rail-sep"></span>
@@ -330,23 +330,22 @@
           </div>
         </section>
 
-        <!-- VIEW 4B: SWDA SINGLE-GLOBAL-ETF SIGNALS -->
+        <!-- VIEW 4B: SWDA SINGLE-GLOBAL-ETF VALUATION & CAUTION MONITOR (UNLEVERED) -->
         <section class="view-panel" id="view-swda">
           <div class="tv-subbar">
             <div class="tv-subbar-group">
               <span style="font-weight:700; color:#fff;">SWDA Signals</span>
               <span class="tv-sep"></span>
-              <button class="tv-tool-btn active" data-swda-win="2500" title="10-Year Rolling Log-OLS (Recommended: cleanest cycle fit, ~0.8 switches/yr)">10Y Roll (2500D)</button>
-              <button class="tv-tool-btn" data-swda-win="1250" title="5-Year Rolling Log-OLS (Faster adaptation)">5Y Roll (1250D)</button>
-              <button class="tv-tool-btn" data-swda-win="max" title="Full-History Expanding Log-OLS">Max</button>
+              <button class="tv-tool-btn active" data-swda-win="2500" title="10-Year Rolling Log-OLS (Recommended: cleanest cycle fit)">10Y Roll (2500D)</button>
+              <button class="tv-tool-btn" data-swda-win="1250" title="5-Year Rolling Log-OLS">5Y Roll (1250D)</button>
+              <button class="tv-tool-btn" data-swda-win="max" title="Full-History Max Log-OLS">Max</button>
               <span class="tv-sep"></span>
-              <button class="tv-tool-btn active" data-swda-mode="deepdip" title="80% Hot (>=+1.5), 100% Normal, 130% Dip (<=-1.0 until 0.0)">Step DeepDip (80/100/130%)</button>
-              <button class="tv-tool-btn" data-swda-mode="rebound" title="75% Hot, 100% Normal, 135% ONLY when <=-0.5 AND above 10W SMA">ReboundBoost (&gt;10W SMA)</button>
-              <button class="tv-tool-btn" data-swda-mode="unlev" title="Zero leverage: 85% base, 100% on dips, 55% at tops">Unlev Z-Tilt (55-100%)</button>
+              <button class="tv-tool-btn active" data-swda-calc="dca" title="Monthly payday contribution + optional gilt reserve">Monthly Payday</button>
+              <button class="tv-tool-btn" data-swda-calc="lumpsum" title="Fresh lump sum: 100% below +1.5 SD, or 50/50 12m when stretched">Fresh Lump Sum</button>
             </div>
             <div class="tv-subbar-group">
-              <button class="tv-tool-btn active" data-swda-hyst="dual" title="Dual Hysteresis: Enter Hot >= +1.50 / Exit <= +0.50; Enter Dip <= -1.00 / Exit >= 0.00 (monthly 1st check only)">Dual Hysteresis</button>
-              <button class="tv-tool-btn" data-swda-hyst="strict" title="Preview live Z threshold directly without hysteresis memory">Live Z Preview</button>
+              <button class="tv-tool-btn active" data-swda-hyst="dual" title="Anti-whipsaw: enter Caution >= +1.50 SD, exit <= +0.50 SD (checked 1st trading day monthly)">Dual Hysteresis</button>
+              <button class="tv-tool-btn" data-swda-hyst="live" title="Preview live Z threshold directly">Live Z Preview</button>
             </div>
           </div>
 
@@ -364,15 +363,15 @@
               </div>
 
               <div class="tv-panel-pad">
-                <div class="tv-sec-title">Historical Monthly Switches (1st Trading Day · Strictly Causal · Dual Hysteresis)</div>
+                <div class="tv-sec-title">Historical Monthly Zone Shifts (1st Trading Day · Strictly Causal · Unlevered)</div>
                 <table class="tv-table">
                   <thead>
                     <tr>
                       <th>Month</th>
                       <th class="num-r">Monthly Z</th>
                       <th class="num-r">SWDA Price</th>
-                      <th>State Switch</th>
-                      <th class="num-r">Target Eq%</th>
+                      <th>Zone Shift</th>
+                      <th class="num-r">Monthly Action</th>
                     </tr>
                   </thead>
                   <tbody id="swdaSwitchBody"></tbody>
@@ -382,59 +381,57 @@
 
             <div class="swda-right-col">
               <div class="tv-panel-pad">
-                <div class="tv-sec-title">SWDA / VWRP / VALL Position &amp; Rebalance Calculator</div>
+                <div class="tv-sec-title">SWDA / VWRP / VALL Deployment Planner (Zero Leverage)</div>
 
-                <div class="field">
-                  <label><span>Portfolio Value (£)</span><span id="swdaPotFmt">£100,000</span></label>
-                  <input type="number" id="swdaPot" value="100000" min="0" step="500" />
-                  <div class="preset-row">
-                    <button class="preset-btn" data-swda-pot="10000">£10k</button>
-                    <button class="preset-btn" data-swda-pot="20000">£20k ISA</button>
-                    <button class="preset-btn" data-swda-pot="50000">£50k</button>
-                    <button class="preset-btn" data-swda-pot="100000">£100k</button>
+                <div id="swdaDcaInputs">
+                  <div class="field">
+                    <label><span>Monthly Contribution (£)</span><span id="swdaMonthlyFmt">£1,000</span></label>
+                    <input type="number" id="swdaMonthly" value="1000" min="0" step="100" />
+                  </div>
+                  <div class="field">
+                    <label><span>Existing Parked IGL5 / CSH2 Reserve (£)</span></label>
+                    <input type="number" id="swdaReserve" value="0" min="0" step="500" />
+                  </div>
+                  <label class="checkbox-row">
+                    <input type="checkbox" id="swdaUseCaution" checked />
+                    <span>Enable optional gilt caution park when Z &gt;= +1.50 SD</span>
+                  </label>
+                </div>
+
+                <div id="swdaLsInputs" style="display:none;">
+                  <div class="field">
+                    <label><span>Fresh Lump Sum (£)</span><span id="swdaLumpFmt">£50,000</span></label>
+                    <input type="number" id="swdaLump" value="50000" min="0" step="1000" />
+                    <div class="preset-row">
+                      <button class="preset-btn" data-swda-lump="10000">£10k</button>
+                      <button class="preset-btn" data-swda-lump="20000">£20k ISA</button>
+                      <button class="preset-btn" data-swda-lump="50000">£50k</button>
+                      <button class="preset-btn" data-swda-lump="100000">£100k</button>
+                    </div>
                   </div>
                 </div>
 
-                <div class="field">
-                  <label><span>New Monthly Cash to Add (£)</span></label>
-                  <input type="number" id="swdaAddCash" value="0" min="0" step="100" />
-                </div>
-
-                <label class="checkbox-row">
-                  <input type="checkbox" id="swdaUseCur" />
-                  <span>Calculate exact Buy / Sell deltas vs current holdings</span>
-                </label>
-
-                <div id="swdaCurBox" style="display:none; margin-bottom:12px;">
-                  <div class="inline-grid-2">
-                    <div class="mini-field"><span>Current 1x SWDA/VWRP (£)</span><input type="number" id="swdaCur1x" value="100000" min="0" step="500" /></div>
-                    <div class="mini-field"><span>Current 2x ETF (£)</span><input type="number" id="swdaCur2x" value="0" min="0" step="500" /></div>
-                    <div class="mini-field"><span>Current CSH2 Cash (£)</span><input type="number" id="swdaCurCash" value="0" min="0" step="500" /></div>
-                  </div>
-                </div>
-
-                <div class="formula-strip" id="swdaEffTag">Effective Equity Exposure: 100%</div>
+                <div class="formula-strip" id="swdaEffTag">Loading allocation...</div>
                 <div class="alloc-bar" id="swdaAllocBar"></div>
 
                 <table class="tv-table">
                   <thead>
                     <tr>
                       <th>Sleeve</th>
-                      <th class="num-r">Target %</th>
-                      <th class="num-r">Target £</th>
-                      <th class="num-r">Action</th>
+                      <th class="num-r">Share %</th>
+                      <th class="num-r">Deploy Now (£)</th>
                     </tr>
                   </thead>
                   <tbody id="swdaCalcBody"></tbody>
                 </table>
 
                 <div class="swda-rule-box">
-                  <strong>How to stop 1.49 / 1.51 whipsaw jitter (Anti-Whipsaw Spec)</strong>
+                  <strong>Evidence-Backed Single-ETF Rules (90Y US &amp; 44Y World Audit)</strong>
                   <div class="swda-rule-list">
-                    <div><strong>1. Check once a month only:</strong> Check on the <strong>1st trading day of each month</strong> (same payday rhythm as SD Desk). Ignore daily and intraday Z moves completely.</div>
-                    <div><strong>2. Dual Hysteresis (1.0 SD wide dead-zone):</strong> Enter <strong>HOT (80/20)</strong> only when monthly Z &gt;= <strong>+1.50 SD</strong>, and stay in 80/20 until monthly Z cools to &lt;= <strong>+0.50 SD</strong>. You will never bounce back and forth at +1.49 / +1.51.</div>
-                    <div><strong>3. Deep-Dip Hysteresis:</strong> Enter <strong>DIP (130%: 70% 1x + 30% 2x)</strong> only when monthly Z &lt;= <strong>-1.00 SD</strong>, and hold until monthly Z recovers to &gt;= <strong>0.00 SD</strong>.</div>
-                    <div><strong>4. Actual historical frequency:</strong> On 20-year World (10Y Roll), this fires just <strong>17 switches in 20.7 years (0.82 trades/yr)</strong> while lifting Buy-and-Hold CAGR from 9.53% to 10.83% (Sharpe 0.51 vs 0.45) at identical -38.1% Max DD.</div>
+                    <div><strong>1. Below the line (Z &lt;= 0.0 SD):</strong> Every £1 invested here carries +3 to +10pp/yr higher 1 to 5Y expected return and a much higher worst-case floor. Buy 100%, sweep any parked IGL5/CSH2 reserve, and invest lump sums 100% immediately.</div>
+                    <div><strong>2. Neutral (0.0 to +1.5 SD):</strong> Invest 100% of new cash and lump sums immediately. Keep any prior gilt reserve parked until Z &lt;= 0.0 SD.</div>
+                    <div><strong>3. Stretched caution (Z &gt;= +1.5 SD, exit &lt;= +0.5 SD):</strong> Equities still earn positive expected return, so 100% buying wins raw CAGR. For extra caution without 1.49 / 1.51 whipsaw, park new monthly cash in IGL5/CSH2 on the 1st of the month until Z cools to &lt;= +0.50 SD.</div>
+                    <div><strong>4. Hot lump-sum guardrail:</strong> Never hold a lump sum 100% in cash waiting indefinitely for Z &lt;= 0.0. When stretched (&gt;= +1.5 SD), put 50% in immediately and drip 50% over 12 months (sweeping early if Z &lt;= 0.0 hits first).</div>
                   </div>
                 </div>
               </div>
